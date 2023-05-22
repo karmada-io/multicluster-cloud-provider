@@ -1,1 +1,1 @@
-# mcs-cloud-provider
+# multicluster-cloud-provider
