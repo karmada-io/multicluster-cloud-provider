@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multicluster-provider-fake
+  namespace: karmada-system
+  labels:
+    app: multicluster-provider-fake
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: multicluster-provider-fake
+  template:
+    metadata:
+      labels:
+        app: multicluster-provider-fake
+    spec:
+      automountServiceAccountToken: false
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+      containers:
+        - name: multicluster-provider-fake
+          image: docker.io/karmada/multicluster-provider-fake:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/multicluster-provider-fake
+            - --kubeconfig=/etc/kubeconfig
+            - --bind-address=0.0.0.0
+            - --secure-port=10368
+            - --multicluster-provider=fake
+            - --provider-ingress-class=karmada.io/fake
+            - --v=4
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10368
+              scheme: HTTP
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          volumeMounts:
+          - name: kubeconfig
+            subPath: kubeconfig
+            mountPath: /etc/kubeconfig
+      volumes:
+        - name: kubeconfig
+          secret:
+            secretName: kubeconfig
