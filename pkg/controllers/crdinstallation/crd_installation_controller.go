@@ -1,4 +1,4 @@
-package crdsynchronizer
+package crdinstallation
 
 import (
 	"context"
@@ -24,9 +24,9 @@ import (
 )
 
 // ControllerName is the controller name that will be used when reporting events.
-const ControllerName = "crd-synchronizer"
+const ControllerName = "crd-installation-controller"
 
-const clusterPropagationPolicyName = "serviceexport-policy"
+const clusterPropagationPolicyName = "serviceexportpropagation-policy"
 
 type eventType int
 
@@ -35,18 +35,17 @@ const (
 	remove
 )
 
-// CRDSynchronizer is to sync ServiceExport CRD into member clusters.
-type CRDSynchronizer struct {
+// Controller will to install ServiceExport CRD in the member clusters.
+type Controller struct {
 	client.Client
 	EventRecorder      record.EventRecorder
 	RateLimiterOptions ratelimiterflag.Options
 }
 
-// Reconcile performs a full reconciliation for the object referred to by the Request.
-// The Controller will requeue the Request to be processed again if an error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *CRDSynchronizer) Reconcile(ctx context.Context, req controllerruntime.Request) (controllerruntime.Result, error) {
-	klog.V(4).InfoS("ServiceExport CRD synchronizer sync with cluster", "name", req.Name)
+// Reconcile performs a full reconciliation for the Cluster object and
+// installs ServiceExport CRD in the member clusters.
+func (r *Controller) Reconcile(ctx context.Context, req controllerruntime.Request) (controllerruntime.Result, error) {
+	klog.V(4).InfoS("Installing ServiceExport CRD on with cluster", "name", req.Name)
 
 	cluster := &clusterv1alpha1.Cluster{}
 	if err := r.Client.Get(ctx, req.NamespacedName, cluster); err != nil {
@@ -63,7 +62,7 @@ func (r *CRDSynchronizer) Reconcile(ctx context.Context, req controllerruntime.R
 	return r.syncClusterPropagationPolicy(ctx, cluster.Name, ensure)
 }
 
-func (r *CRDSynchronizer) syncClusterPropagationPolicy(ctx context.Context, clusterName string, t eventType) (controllerruntime.Result, error) {
+func (r *Controller) syncClusterPropagationPolicy(ctx context.Context, clusterName string, t eventType) (controllerruntime.Result, error) {
 	policy := &policyv1alpha1.ClusterPropagationPolicy{}
 	err := r.Client.Get(ctx, types.NamespacedName{Name: clusterPropagationPolicyName}, policy)
 	if err != nil {
@@ -109,7 +108,7 @@ func (r *CRDSynchronizer) syncClusterPropagationPolicy(ctx context.Context, clus
 	return controllerruntime.Result{}, nil
 }
 
-func (r *CRDSynchronizer) createClusterPropagationPolicy(ctx context.Context) (controllerruntime.Result, error) {
+func (r *Controller) createClusterPropagationPolicy(ctx context.Context) (controllerruntime.Result, error) {
 	clusters := &clusterv1alpha1.ClusterList{}
 	err := r.Client.List(ctx, clusters)
 	if err != nil {
@@ -150,7 +149,7 @@ func clusterPropagationPolicy(clusters []string) *policyv1alpha1.ClusterPropagat
 }
 
 // SetupWithManager creates a controller and register to controller manager.
-func (r *CRDSynchronizer) SetupWithManager(_ context.Context, mgr controllerruntime.Manager) error {
+func (r *Controller) SetupWithManager(_ context.Context, mgr controllerruntime.Manager) error {
 	clusterFilter := predicate.Funcs{
 		CreateFunc: func(event event.CreateEvent) bool { return true },
 		UpdateFunc: func(updateEvent event.UpdateEvent) bool {

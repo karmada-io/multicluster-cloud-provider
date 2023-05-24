@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	controllerscontext "github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/context"
-	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/crdsynchronizer"
+	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/crdinstallation"
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/multiclusteringress"
-	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/serviceexport"
+	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/serviceexportpropagation"
 )
 
 func startMCIController(ctx controllerscontext.Context) (enabled bool, err error) {
@@ -32,22 +32,22 @@ func startMCIController(ctx controllerscontext.Context) (enabled bool, err error
 	return true, nil
 }
 
-func startCRDSynchronizer(ctx controllerscontext.Context) (enabled bool, err error) {
-	crdSynchronizer := &crdsynchronizer.CRDSynchronizer{
+func startCRDInstallationController(ctx controllerscontext.Context) (enabled bool, err error) {
+	c := &crdinstallation.Controller{
 		Client:             ctx.Mgr.GetClient(),
-		EventRecorder:      ctx.Mgr.GetEventRecorderFor(crdsynchronizer.ControllerName),
+		EventRecorder:      ctx.Mgr.GetEventRecorderFor(crdinstallation.ControllerName),
 		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
 	}
-	if err = crdSynchronizer.SetupWithManager(ctx.Context, ctx.Mgr); err != nil {
+	if err = c.SetupWithManager(ctx.Context, ctx.Mgr); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func startServiceExportController(ctx controllerscontext.Context) (enabled bool, err error) {
-	c := &serviceexport.Controller{
+func startServiceExportPropagationController(ctx controllerscontext.Context) (enabled bool, err error) {
+	c := &serviceexportpropagation.Controller{
 		Client:             ctx.Mgr.GetClient(),
-		EventRecorder:      ctx.Mgr.GetEventRecorderFor(serviceexport.ControllerName),
+		EventRecorder:      ctx.Mgr.GetEventRecorderFor(serviceexportpropagation.ControllerName),
 		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
 		ProviderClassName:  ctx.ProviderClassName,
 	}

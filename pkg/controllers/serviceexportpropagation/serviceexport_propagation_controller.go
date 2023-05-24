@@ -1,4 +1,4 @@
-package serviceexport
+package serviceexportpropagation
 
 import (
 	"context"
@@ -27,11 +27,11 @@ import (
 )
 
 // ControllerName it the controller name that will be used when reporting events.
-const ControllerName = "serviceexport-controller"
+const ControllerName = "serviceexport-propagation-controller"
 
 const propagationPolicyPrefix = "propagate-service-"
 
-// Controller is to sync Service.
+// Controller will propagate ServiceExport resource into member clusters.
 type Controller struct {
 	client.Client
 	EventRecorder      record.EventRecorder
@@ -39,9 +39,8 @@ type Controller struct {
 	ProviderClassName  string
 }
 
-// Reconcile performs a full reconciliation for the object referred to by the Request.
-// The Controller will requeue the Request to be processed again if an error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+// Reconcile performs a full reconciliation for the Service object and
+// propagates ServiceExport resource into member clusters.
 func (c *Controller) Reconcile(ctx context.Context, req controllerruntime.Request) (controllerruntime.Result, error) {
 	klog.V(4).InfoS("Reconciling Service", "namespace", req.Namespace, "name", req.Name)
 

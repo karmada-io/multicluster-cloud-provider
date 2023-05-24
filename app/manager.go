@@ -13,6 +13,8 @@ import (
 	"github.com/karmada-io/karmada/pkg/util/fedinformer/genericmanager"
 	"github.com/karmada-io/karmada/pkg/util/gclient"
 	"github.com/karmada-io/karmada/pkg/util/restmapper"
+	"github.com/karmada-io/karmada/pkg/version"
+	"github.com/karmada-io/karmada/pkg/version/sharedcommand"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	cliflag "k8s.io/component-base/cli/flag"
@@ -26,16 +28,14 @@ import (
 	"github.com/karmada-io/multicluster-cloud-provider/options"
 	controllersctx "github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/context"
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/indexes"
-	"github.com/karmada-io/multicluster-cloud-provider/pkg/version"
-	"github.com/karmada-io/multicluster-cloud-provider/pkg/version/sharedcommand"
 )
 
 var controllers = make(controllersctx.Initializers)
 
 func init() {
 	controllers["multiclusteringress"] = startMCIController
-	controllers["crd-synchronizer"] = startCRDSynchronizer
-	controllers["serviceexport"] = startServiceExportController
+	controllers["crd-installation"] = startCRDInstallationController
+	controllers["serviceexport-propagation"] = startServiceExportPropagationController
 }
 
 // InitProviderFunc is used to initialize multicluster provider

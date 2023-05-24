@@ -1,4 +1,4 @@
-package serviceexport
+package serviceexportpropagation
 
 import (
 	"context"
