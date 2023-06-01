@@ -155,7 +155,7 @@ func (c *MCIController) updateMCIStatus(ctx context.Context, mci *networkingv1al
 		}
 
 		updated := &networkingv1alpha1.MultiClusterIngress{}
-		if err = c.Get(ctx, client.ObjectKey{Namespace: mci.Namespace, Name: mci.Name}, updated); err != nil {
+		if err = c.Get(ctx, client.ObjectKey{Namespace: mci.Namespace, Name: mci.Name}, updated); err == nil {
 			mci = updated
 		} else {
 			klog.Errorf("Failed to get updated multiClusterIngress(%s/%s): %v", mci.Namespace, mci.Name, err)
