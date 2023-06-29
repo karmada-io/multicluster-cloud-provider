@@ -183,17 +183,18 @@ func (c *MCIController) SetupWithManager(ctx context.Context, mgr controllerrunt
 }
 
 func (c *MCIController) setupWatches(ctx context.Context, mciController controller.Controller) error {
-	ingEventChan := make(chan event.GenericEvent)
+	mciEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
 
-	ingEventHandler := newMultiClusterIngressEventHandler(ctx, c.Client, c.ProviderClassName)
-	svcEventHandler := newServiceEventHandler(ingEventChan, c.Client)
+	mciEventHandler := newMultiClusterIngressEventHandler(ctx, c.Client, c.ProviderClassName)
+	svcEventHandler := newServiceEventHandler(mciEventChan, c.Client)
 	epsEventHandler := newEndpointSlicesEventHandler(svcEventChan)
+	secEventHandler := newSecretEventHandler(mciEventChan, c.Client)
 
-	if err := mciController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterIngress{}}, ingEventHandler); err != nil {
+	if err := mciController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterIngress{}}, mciEventHandler); err != nil {
 		return err
 	}
-	if err := mciController.Watch(&source.Channel{Source: ingEventChan}, ingEventHandler); err != nil {
+	if err := mciController.Watch(&source.Channel{Source: mciEventChan}, mciEventHandler); err != nil {
 		return err
 	}
 	if err := mciController.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
@@ -203,6 +204,9 @@ func (c *MCIController) setupWatches(ctx context.Context, mciController controll
 		return err
 	}
 	if err := mciController.Watch(&source.Kind{Type: &discoveryv1.EndpointSlice{}}, epsEventHandler); err != nil {
+		return err
+	}
+	if err := mciController.Watch(&source.Kind{Type: &corev1.Secret{}}, secEventHandler); err != nil {
 		return err
 	}
 	return nil

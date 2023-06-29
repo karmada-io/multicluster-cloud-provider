@@ -22,6 +22,7 @@ import (
 	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	multiclusterprovider "github.com/karmada-io/multicluster-cloud-provider"
@@ -150,9 +151,7 @@ func setupControllers(ctx context.Context, mgr controllerruntime.Manager, cloudP
 
 	controlPlaneInformerManager := genericmanager.NewSingleClusterInformerManager(dynamicClientSet, 0, ctx.Done())
 
-	if err := indexes.SetupIndexesForMCI(ctx, mgr.GetFieldIndexer()); err != nil {
-		klog.Fatalf("failed to setup indexes for MultiClusterIngress object: %v", err)
-	}
+	setupIndexesForMCI(ctx, mgr.GetFieldIndexer())
 
 	controllerCtx := controllersctx.Context{
 		Context:       ctx,
@@ -175,4 +174,14 @@ func setupControllers(ctx context.Context, mgr controllerruntime.Manager, cloudP
 		<-ctx.Done()
 		genericmanager.StopInstance()
 	}()
+}
+
+func setupIndexesForMCI(ctx context.Context, fieldIndexer client.FieldIndexer) {
+	if err := indexes.SetupServiceIndexesForMCI(ctx, fieldIndexer); err != nil {
+		klog.Fatalf("failed to setup service indexes for MultiClusterIngress object: %v", err)
+	}
+
+	if err := indexes.SetupSecretIndexesForMCI(ctx, fieldIndexer); err != nil {
+		klog.Fatalf("failed to setup secret indexes for MultiClusterIngress object: %v", err)
+	}
 }
