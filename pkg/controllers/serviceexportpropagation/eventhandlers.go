@@ -164,9 +164,19 @@ type resourceBindingEventHandler struct {
 	svcEventChan chan<- event.GenericEvent
 }
 
-func (h *resourceBindingEventHandler) Create(_ event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	// The creation event of the resourceBinding will be
-	// processed by the creation event of service.
+func (h *resourceBindingEventHandler) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+	// The distribution feature involves directly creating rb objects,
+	// so it is necessary to care about the rb creation event.
+	rb := e.Object.(*workv1alpha1.ResourceBinding)
+	if rb.Spec.Resource.Kind != "Service" {
+		return
+	}
+	h.svcEventChan <- event.GenericEvent{
+		Object: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: rb.Spec.Resource.Namespace,
+				Name:      rb.Spec.Resource.Name,
+			}}}
 }
 
 func (h *resourceBindingEventHandler) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
