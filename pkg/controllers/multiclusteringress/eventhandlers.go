@@ -186,3 +186,58 @@ func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
 				Name:      strings.TrimPrefix(svcName, derivedServicePrefix),
 			}}}
 }
+
+func newSecretEventHandler(mciEventChan chan<- event.GenericEvent, client client.Client) handler.EventHandler {
+	return &secretEventHandler{
+		mciEventChan: mciEventChan,
+		client:       client,
+	}
+}
+
+var _ handler.EventHandler = (*secretEventHandler)(nil)
+
+type secretEventHandler struct {
+	mciEventChan chan<- event.GenericEvent
+	client       client.Client
+}
+
+func (h *secretEventHandler) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
+}
+
+func (h *secretEventHandler) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+	secretOld := e.ObjectOld.(*corev1.Secret)
+	secretNew := e.ObjectNew.(*corev1.Secret)
+
+	if equality.Semantic.DeepEqual(secretOld.Annotations, secretNew.Annotations) &&
+		equality.Semantic.DeepEqual(secretOld.Data, secretNew.Data) &&
+		equality.Semantic.DeepEqual(secretOld.StringData, secretNew.StringData) {
+		return
+	}
+
+	h.enqueueImpactedMCI(secretNew.Namespace, secretNew.Name)
+}
+
+func (h *secretEventHandler) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
+}
+
+func (h *secretEventHandler) enqueueImpactedMCI(secretNamespace, secretName string) {
+	mciList := &networkingv1alpha1.MultiClusterIngressList{}
+	if err := h.client.List(context.Background(), mciList,
+		client.InNamespace(secretNamespace),
+		client.MatchingFields{indexes.IndexKeySecretRefName: secretName}); err != nil {
+		klog.Errorf("failed to fetch multiclusteringresses")
+		return
+	}
+
+	for index := range mciList.Items {
+		mci := &mciList.Items[index]
+		h.mciEventChan <- event.GenericEvent{
+			Object: mci,
+		}
+	}
+}
+
+func (h *secretEventHandler) Generic(_ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+}

@@ -12,10 +12,12 @@ import (
 const (
 	// IndexKeyServiceRefName is index key for services referenced by MultiClusterIngress.
 	IndexKeyServiceRefName = "mci.serviceRef.name"
+	// IndexKeySecretRefName is index key for secrets referenced by MultiClusterIngress.
+	IndexKeySecretRefName = "mci.secretRef.name" // #nosec G101
 )
 
-// SetupIndexesForMCI setups Indexes for MultiClusterIngress object.
-func SetupIndexesForMCI(ctx context.Context, fieldIndexer client.FieldIndexer) error {
+// SetupServiceIndexesForMCI setups Service Indexes for MultiClusterIngress object.
+func SetupServiceIndexesForMCI(ctx context.Context, fieldIndexer client.FieldIndexer) error {
 	if err := fieldIndexer.IndexField(ctx, &networkingv1alpha1.MultiClusterIngress{}, IndexKeyServiceRefName,
 		func(object client.Object) []string {
 			return BuildServiceRefIndexes(object.(*networkingv1alpha1.MultiClusterIngress))
@@ -46,4 +48,24 @@ func BuildServiceRefIndexes(mci *networkingv1alpha1.MultiClusterIngress) []strin
 		svcNames.Insert(backend.Service.Name)
 	}
 	return svcNames.List()
+}
+
+// SetupSecretIndexesForMCI setups Secret Indexes for MultiClusterIngress object.
+func SetupSecretIndexesForMCI(ctx context.Context, fieldIndexer client.FieldIndexer) error {
+	if err := fieldIndexer.IndexField(ctx, &networkingv1alpha1.MultiClusterIngress{}, IndexKeySecretRefName,
+		func(object client.Object) []string {
+			return BuildSecretRefIndexes(object.(*networkingv1alpha1.MultiClusterIngress))
+		}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// BuildSecretRefIndexes returns the secret refs in the MultiClusterIngress object.
+func BuildSecretRefIndexes(mci *networkingv1alpha1.MultiClusterIngress) []string {
+	secretNames := sets.NewString()
+	for _, tls := range mci.Spec.TLS {
+		secretNames.Insert(tls.SecretName)
+	}
+	return secretNames.List()
 }
