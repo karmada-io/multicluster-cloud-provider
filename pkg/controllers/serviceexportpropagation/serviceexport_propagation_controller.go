@@ -24,6 +24,7 @@ import (
 	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/indexes"
+	"github.com/karmada-io/multicluster-cloud-provider/pkg/util"
 )
 
 // ControllerName it the controller name that will be used when reporting events.
@@ -56,18 +57,39 @@ func (c *Controller) Reconcile(ctx context.Context, req controllerruntime.Reques
 		return controllerruntime.Result{}, nil
 	}
 
-	mciList := &networkingv1alpha1.MultiClusterIngressList{}
-	if err := c.Client.List(context.Background(), mciList,
-		client.InNamespace(svc.Namespace),
-		client.MatchingFields{indexes.IndexKeyServiceRefName: svc.Name}); err != nil {
-		klog.Errorf("failed to fetch multiclusteringresses")
+	needEnsure, err := c.needEnsureServiceExport(ctx, svc.Namespace, svc.Name)
+	if err != nil {
 		return controllerruntime.Result{}, err
 	}
 
-	if len(mciList.Items) > 0 {
+	if needEnsure {
 		return c.ensureServiceExport(ctx, svc)
 	}
 	return c.removeServiceExport(ctx, svc)
+}
+
+func (c *Controller) needEnsureServiceExport(ctx context.Context, svcNamespace, svcName string) (bool, error) {
+	mciList := &networkingv1alpha1.MultiClusterIngressList{}
+	if err := c.Client.List(ctx, mciList,
+		client.InNamespace(svcNamespace),
+		client.MatchingFields{indexes.IndexKeyServiceRefName: svcName}); err != nil {
+		klog.Errorf("failed to fetch multiclusteringresses")
+		return false, err
+	}
+
+	if len(mciList.Items) > 0 {
+		return true, nil
+	}
+
+	mcs := &networkingv1alpha1.MultiClusterService{}
+	if err := c.Client.Get(ctx, types.NamespacedName{Namespace: svcNamespace, Name: svcName}, mcs); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		klog.Errorf("failed to get multiclusterservice")
+		return false, err
+	}
+	return util.MCSContainLoadBalanceType(mcs), nil
 }
 
 func (c *Controller) ensureServiceExport(ctx context.Context, svc *corev1.Service) (controllerruntime.Result, error) {
@@ -281,8 +303,9 @@ func (c *Controller) SetupWithManager(ctx context.Context, mgr controllerruntime
 func (c *Controller) setupWatches(ctx context.Context, serviceExportController controller.Controller) error {
 	svcEventChan := make(chan event.GenericEvent)
 
-	svcEventHandler := newServiceEventHandler(c.Client)
+	svcEventHandler := newServiceEventHandler(ctx, c.Client)
 	mciEventHandler := newMultiClusterIngressEventHandler(ctx, c.Client, svcEventChan, c.ProviderClassName)
+	mcsEventHandler := newMultiClusterServiceEventHandler(ctx, c.Client, svcEventChan)
 	rbEventHandler := newResourceBindingEventHandler(svcEventChan)
 
 	if err := serviceExportController.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
@@ -292,6 +315,9 @@ func (c *Controller) setupWatches(ctx context.Context, serviceExportController c
 		return err
 	}
 	if err := serviceExportController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterIngress{}}, mciEventHandler); err != nil {
+		return err
+	}
+	if err := serviceExportController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterService{}}, mcsEventHandler); err != nil {
 		return err
 	}
 	if err := serviceExportController.Watch(&source.Kind{Type: &workv1alpha1.ResourceBinding{}}, rbEventHandler); err != nil {
