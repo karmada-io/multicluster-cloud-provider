@@ -35,6 +35,7 @@ var controllers = make(controllersctx.Initializers)
 
 func init() {
 	controllers["multiclusteringress"] = startMCIController
+	controllers["multiclusterservice"] = startMCSController
 	controllers["crd-installation"] = startCRDInstallationController
 	controllers["serviceexport-propagation"] = startServiceExportPropagationController
 }

@@ -21,19 +21,23 @@ import (
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/util"
 )
 
-func newServiceEventHandler(client client.Client) handler.EventHandler {
-	return &serviceEventHandler{client: client}
+func newServiceEventHandler(ctx context.Context, client client.Client) handler.EventHandler {
+	return &serviceEventHandler{
+		ctx:    ctx,
+		client: client,
+	}
 }
 
 var _ handler.EventHandler = (*serviceEventHandler)(nil)
 
 type serviceEventHandler struct {
+	ctx    context.Context
 	client client.Client
 }
 
 func (h *serviceEventHandler) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	mciList := &networkingv1alpha1.MultiClusterIngressList{}
-	if err := h.client.List(context.Background(), mciList,
+	if err := h.client.List(h.ctx, mciList,
 		client.InNamespace(e.Object.GetNamespace()),
 		client.MatchingFields{indexes.IndexKeyServiceRefName: e.Object.GetName()}); err != nil {
 		klog.Errorf("failed to fetch multiclusteringresses")
@@ -46,7 +50,22 @@ func (h *serviceEventHandler) Create(e event.CreateEvent, queue workqueue.RateLi
 				Namespace: e.Object.GetNamespace(),
 				Name:      e.Object.GetName(),
 			}})
+		return
 	}
+
+	mcs := &networkingv1alpha1.MultiClusterService{}
+	if err := h.client.Get(h.ctx, types.NamespacedName{
+		Namespace: e.Object.GetNamespace(),
+		Name:      e.Object.GetName(),
+	}, mcs); err != nil {
+		return
+	}
+
+	queue.Add(reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: e.Object.GetNamespace(),
+			Name:      e.Object.GetName(),
+		}})
 }
 
 func (h *serviceEventHandler) Update(_ event.UpdateEvent, _ workqueue.RateLimitingInterface) {
@@ -150,6 +169,60 @@ func (h *multiClusterIngressEventHandler) enqueueImpactedService(mci *networking
 					Name:      svc,
 				}}}
 	}
+}
+
+func newMultiClusterServiceEventHandler(
+	ctx context.Context,
+	client client.Client,
+	svcEventChan chan<- event.GenericEvent,
+) handler.EventHandler {
+	return &multiClusterServiceEventHandler{
+		ctx:          ctx,
+		client:       client,
+		svcEventChan: svcEventChan,
+	}
+}
+
+var _ handler.EventHandler = (*multiClusterServiceEventHandler)(nil)
+
+type multiClusterServiceEventHandler struct {
+	ctx          context.Context
+	client       client.Client
+	svcEventChan chan<- event.GenericEvent
+}
+
+func (h *multiClusterServiceEventHandler) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+	h.enqueueImpactedService(e.Object.GetNamespace(), e.Object.GetName())
+}
+
+func (h *multiClusterServiceEventHandler) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+	mcsOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterService)
+	mcsNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterService)
+
+	// Only care about the update events below:
+	if equality.Semantic.DeepEqual(mcsOld.Annotations, mcsNew.Annotations) &&
+		equality.Semantic.DeepEqual(mcsOld.Spec.Types, mcsNew.Spec.Types) &&
+		equality.Semantic.DeepEqual(mcsOld.Spec.Ports, mcsNew.Spec.Ports) {
+		return
+	}
+
+	h.enqueueImpactedService(mcsNew.Namespace, mcsNew.Name)
+}
+
+func (h *multiClusterServiceEventHandler) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+	h.enqueueImpactedService(e.Object.GetNamespace(), e.Object.GetName())
+}
+
+func (h *multiClusterServiceEventHandler) Generic(_ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+}
+
+func (h *multiClusterServiceEventHandler) enqueueImpactedService(namespace, name string) {
+	h.svcEventChan <- event.GenericEvent{
+		Object: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			}}}
 }
 
 func newResourceBindingEventHandler(svcEventChan chan<- event.GenericEvent) handler.EventHandler {
