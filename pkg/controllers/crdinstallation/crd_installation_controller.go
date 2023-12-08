@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // ControllerName is the controller name that will be used when reporting events.
@@ -161,7 +160,7 @@ func (r *Controller) SetupWithManager(_ context.Context, mgr controllerruntime.M
 	}
 
 	cppHandlerFn := handler.MapFunc(
-		func(object client.Object) []reconcile.Request {
+		func(ctx context.Context, object client.Object) []reconcile.Request {
 			// return a fictional cluster, triggering to reconcile to recreate the cpp.
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{Name: "no-exist-cluster"}},
@@ -179,7 +178,7 @@ func (r *Controller) SetupWithManager(_ context.Context, mgr controllerruntime.M
 
 	return controllerruntime.NewControllerManagedBy(mgr).
 		For(&clusterv1alpha1.Cluster{}).
-		Watches(&source.Kind{Type: &policyv1alpha1.ClusterPropagationPolicy{}},
+		Watches(&policyv1alpha1.ClusterPropagationPolicy{},
 			handler.EnqueueRequestsFromMapFunc(cppHandlerFn), cppFilter).
 		WithEventFilter(clusterFilter).
 		WithOptions(controller.Options{

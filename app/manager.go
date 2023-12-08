@@ -9,7 +9,6 @@ import (
 	"github.com/karmada-io/karmada/pkg/sharedcli"
 	"github.com/karmada-io/karmada/pkg/sharedcli/klogflag"
 	"github.com/karmada-io/karmada/pkg/sharedcli/profileflag"
-	"github.com/karmada-io/karmada/pkg/util/fedinformer"
 	"github.com/karmada-io/karmada/pkg/util/fedinformer/genericmanager"
 	"github.com/karmada-io/karmada/pkg/util/gclient"
 	"github.com/karmada-io/karmada/pkg/util/restmapper"
@@ -21,7 +20,6 @@ import (
 	"k8s.io/component-base/term"
 	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
@@ -119,9 +117,6 @@ func Run(ctx context.Context, opts *options.MultiClusterControllerManagerOptions
 		BaseContext: func() context.Context {
 			return ctx
 		},
-		NewCache: cache.BuilderWithOptions(cache.Options{
-			DefaultTransform: fedinformer.StripUnusedFields,
-		}),
 	})
 	if err != nil {
 		klog.Errorf("Failed to build controller manager: %v", err)

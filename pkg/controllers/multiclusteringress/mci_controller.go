@@ -175,14 +175,14 @@ func (c *MCIController) SetupWithManager(ctx context.Context, mgr controllerrunt
 		return err
 	}
 
-	if err = c.setupWatches(ctx, mciController); err != nil {
+	if err = c.setupWatches(ctx, mciController, mgr); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *MCIController) setupWatches(ctx context.Context, mciController controller.Controller) error {
+func (c *MCIController) setupWatches(ctx context.Context, mciController controller.Controller, mgr controllerruntime.Manager) error {
 	mciEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
 
@@ -191,22 +191,22 @@ func (c *MCIController) setupWatches(ctx context.Context, mciController controll
 	epsEventHandler := newEndpointSlicesEventHandler(svcEventChan)
 	secEventHandler := newSecretEventHandler(mciEventChan, c.Client)
 
-	if err := mciController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterIngress{}}, mciEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}), mciEventHandler); err != nil {
 		return err
 	}
 	if err := mciController.Watch(&source.Channel{Source: mciEventChan}, mciEventHandler); err != nil {
 		return err
 	}
-	if err := mciController.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), svcEventHandler); err != nil {
 		return err
 	}
 	if err := mciController.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
 		return err
 	}
-	if err := mciController.Watch(&source.Kind{Type: &discoveryv1.EndpointSlice{}}, epsEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind(mgr.GetCache(), &discoveryv1.EndpointSlice{}), epsEventHandler); err != nil {
 		return err
 	}
-	if err := mciController.Watch(&source.Kind{Type: &corev1.Secret{}}, secEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), secEventHandler); err != nil {
 		return err
 	}
 	return nil
