@@ -293,14 +293,14 @@ func (c *Controller) SetupWithManager(ctx context.Context, mgr controllerruntime
 		return err
 	}
 
-	if err = c.setupWatches(ctx, serviceExportController); err != nil {
+	if err = c.setupWatches(ctx, serviceExportController, mgr); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Controller) setupWatches(ctx context.Context, serviceExportController controller.Controller) error {
+func (c *Controller) setupWatches(ctx context.Context, serviceExportController controller.Controller, mgr controllerruntime.Manager) error {
 	svcEventChan := make(chan event.GenericEvent)
 
 	svcEventHandler := newServiceEventHandler(ctx, c.Client)
@@ -308,19 +308,19 @@ func (c *Controller) setupWatches(ctx context.Context, serviceExportController c
 	mcsEventHandler := newMultiClusterServiceEventHandler(ctx, c.Client, svcEventChan)
 	rbEventHandler := newResourceBindingEventHandler(svcEventChan)
 
-	if err := serviceExportController.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), svcEventHandler); err != nil {
 		return err
 	}
 	if err := serviceExportController.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterIngress{}}, mciEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}), mciEventHandler); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterService{}}, mcsEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterService{}), mcsEventHandler); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(&source.Kind{Type: &workv1alpha1.ResourceBinding{}}, rbEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &workv1alpha1.ResourceBinding{}), rbEventHandler); err != nil {
 		return err
 	}
 	return nil

@@ -249,14 +249,14 @@ func (c *MCSController) SetupWithManager(_ context.Context, mgr controllerruntim
 		return err
 	}
 
-	if err = c.setupWatches(mcsController); err != nil {
+	if err = c.setupWatches(mcsController, mgr); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *MCSController) setupWatches(mcsController controller.Controller) error {
+func (c *MCSController) setupWatches(mcsController controller.Controller, mgr controllerruntime.Manager) error {
 	mcsEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
 
@@ -264,19 +264,19 @@ func (c *MCSController) setupWatches(mcsController controller.Controller) error 
 	svcEventHandler := newServiceEventHandler(mcsEventChan, c.Client)
 	epsEventHandler := newEndpointSlicesEventHandler(svcEventChan)
 
-	if err := mcsController.Watch(&source.Kind{Type: &networkingv1alpha1.MultiClusterService{}}, mcsEventHandler); err != nil {
+	if err := mcsController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterService{}), mcsEventHandler); err != nil {
 		return err
 	}
 	if err := mcsController.Watch(&source.Channel{Source: mcsEventChan}, mcsEventHandler); err != nil {
 		return err
 	}
-	if err := mcsController.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
+	if err := mcsController.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), svcEventHandler); err != nil {
 		return err
 	}
 	if err := mcsController.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
 		return err
 	}
-	if err := mcsController.Watch(&source.Kind{Type: &discoveryv1.EndpointSlice{}}, epsEventHandler); err != nil {
+	if err := mcsController.Watch(source.Kind(mgr.GetCache(), &discoveryv1.EndpointSlice{}), epsEventHandler); err != nil {
 		return err
 	}
 	return nil
