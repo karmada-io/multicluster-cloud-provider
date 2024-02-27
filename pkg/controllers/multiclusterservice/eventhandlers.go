@@ -29,7 +29,7 @@ var _ handler.EventHandler = (*multiClusterServiceEventHandler)(nil)
 type multiClusterServiceEventHandler struct {
 }
 
-func (h *multiClusterServiceEventHandler) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Create(_ context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	mcs := e.Object.(*networkingv1alpha1.MultiClusterService)
 	if !util.MCSContainLoadBalanceType(mcs) {
 		return
@@ -41,7 +41,7 @@ func (h *multiClusterServiceEventHandler) Create(ctx context.Context, e event.Cr
 	}})
 }
 
-func (h *multiClusterServiceEventHandler) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Update(_ context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 	mcsOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterService)
 	mcsNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterService)
 	if !util.MCSContainLoadBalanceType(mcsOld) && !util.MCSContainLoadBalanceType(mcsNew) {
@@ -61,12 +61,12 @@ func (h *multiClusterServiceEventHandler) Update(ctx context.Context, e event.Up
 	}})
 }
 
-func (h *multiClusterServiceEventHandler) Delete(ctx context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	// Since finalizer is added to the MultiClusterService object,
 	// the delete event is processed by the update event.
 }
 
-func (h *multiClusterServiceEventHandler) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Generic(_ context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 	queue.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Namespace: e.Object.GetNamespace(),
 		Name:      e.Object.GetName(),
@@ -87,11 +87,11 @@ type serviceEventHandler struct {
 	client       client.Client
 }
 
-func (h *serviceEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCS(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	svcOld := e.ObjectOld.(*corev1.Service)
 	svcNew := e.ObjectNew.(*corev1.Service)
 
@@ -104,11 +104,11 @@ func (h *serviceEventHandler) Update(ctx context.Context, e event.UpdateEvent, _
 	h.enqueueImpactedMCS(svcNew.Namespace, svcNew.Name)
 }
 
-func (h *serviceEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCS(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Generic(ctx context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Generic(_ context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCS(e.Object.GetNamespace(), e.Object.GetName())
 }
 
@@ -136,19 +136,19 @@ type endpointSlicesEventHandler struct {
 	svcEventChan chan<- event.GenericEvent
 }
 
-func (h *endpointSlicesEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedSvc(e.ObjectNew)
 }
 
-func (h *endpointSlicesEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Generic(ctx context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
 }
 
 func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
