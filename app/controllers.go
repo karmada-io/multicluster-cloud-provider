@@ -5,6 +5,7 @@ import (
 
 	controllerscontext "github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/context"
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/crdinstallation"
+	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/mciservicelocations"
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/multiclusteringress"
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/multiclusterservice"
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/controllers/serviceexportpropagation"
@@ -75,6 +76,17 @@ func startServiceExportPropagationController(ctx controllerscontext.Context) (en
 		ProviderClassName:  ctx.ProviderClassName,
 	}
 	if err = c.SetupWithManager(ctx.Context, ctx.Mgr); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func startMCIServiceLocationsController(ctx controllerscontext.Context) (enabled bool, err error) {
+	c := &mciservicelocations.Controller{
+		Client:             ctx.Mgr.GetClient(),
+		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
+	}
+	if err = c.SetupWithManager(ctx.Mgr); err != nil {
 		return false, err
 	}
 	return true, nil
