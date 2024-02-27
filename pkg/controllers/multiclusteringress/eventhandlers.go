@@ -4,7 +4,9 @@ import (
 	"context"
 	"strings"
 
+	clusterv1alpha1 "github.com/karmada-io/karmada/pkg/apis/cluster/v1alpha1"
 	networkingv1alpha1 "github.com/karmada-io/karmada/pkg/apis/networking/v1alpha1"
+	remedyv1alpha1 "github.com/karmada-io/karmada/pkg/apis/remedy/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -240,4 +242,76 @@ func (h *secretEventHandler) enqueueImpactedMCI(secretNamespace, secretName stri
 }
 
 func (h *secretEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+}
+
+func newClusterEventHandler(mciEventChan chan<- event.GenericEvent, client client.Client) handler.EventHandler {
+	return &clusterEventHandler{
+		client:       client,
+		mciEventChan: mciEventChan,
+	}
+}
+
+var _ handler.EventHandler = (*clusterEventHandler)(nil)
+
+type clusterEventHandler struct {
+	client       client.Client
+	mciEventChan chan<- event.GenericEvent
+}
+
+func (h *clusterEventHandler) Create(_ context.Context, _ event.CreateEvent, _ workqueue.RateLimitingInterface) {
+}
+
+func (h *clusterEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+	oldCluster := e.ObjectOld.(*clusterv1alpha1.Cluster)
+	newCluster := e.ObjectNew.(*clusterv1alpha1.Cluster)
+	oldExist, newExist := false, false
+	for _, action := range oldCluster.Status.RemedyActions {
+		if action == string(remedyv1alpha1.TrafficControl) {
+			oldExist = true
+			break
+		}
+	}
+	for _, action := range newCluster.Status.RemedyActions {
+		if action == string(remedyv1alpha1.TrafficControl) {
+			newExist = true
+			break
+		}
+	}
+
+	if oldExist == newExist {
+		return
+	}
+
+	mciList := &networkingv1alpha1.MultiClusterIngressList{}
+	if err := h.client.List(context.Background(), mciList); err != nil {
+		klog.Errorf("failed to fetch multiclusteringresses")
+		return
+	}
+
+	for index := range mciList.Items {
+		mci := &mciList.Items[index]
+		if !mciSvcLocationsContainsCluster(mci, newCluster) {
+			continue
+		}
+		h.mciEventChan <- event.GenericEvent{
+			Object: mci,
+		}
+	}
+}
+
+func (h *clusterEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+}
+
+func (h *clusterEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+}
+
+func mciSvcLocationsContainsCluster(mci *networkingv1alpha1.MultiClusterIngress, cluster *clusterv1alpha1.Cluster) bool {
+	for _, location := range mci.Status.ServiceLocations {
+		for _, clusterName := range location.Clusters {
+			if clusterName == cluster.Name {
+				return true
+			}
+		}
+	}
+	return false
 }

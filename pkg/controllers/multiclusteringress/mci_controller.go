@@ -3,14 +3,19 @@ package multiclusteringress
 import (
 	"context"
 	"reflect"
+	"sort"
 
+	clusterv1alpha1 "github.com/karmada-io/karmada/pkg/apis/cluster/v1alpha1"
 	networkingv1alpha1 "github.com/karmada-io/karmada/pkg/apis/networking/v1alpha1"
+	remedyv1alpha1 "github.com/karmada-io/karmada/pkg/apis/remedy/v1alpha1"
 	"github.com/karmada-io/karmada/pkg/sharedcli/ratelimiterflag"
 	"github.com/karmada-io/karmada/pkg/util/fedinformer/genericmanager"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -95,6 +100,10 @@ func (c *MCIController) handleMCICreateOrUpdate(ctx context.Context, mci *networ
 		}
 	}
 
+	if err := c.updateMCITrafficBlockClusters(ctx, mci); err != nil {
+		return controllerruntime.Result{}, err
+	}
+
 	_, exist, err := c.LoadBalancer.GetLoadBalancer(ctx, mci)
 	if err != nil {
 		klog.ErrorS(err, "failed to get loadBalancer with provider", "namespace", mci.Namespace, "name", mci.Name)
@@ -104,6 +113,60 @@ func (c *MCIController) handleMCICreateOrUpdate(ctx context.Context, mci *networ
 		return c.handleMCIUpdate(ctx, mci)
 	}
 	return c.handleMCICreate(ctx, mci)
+}
+
+func (c *MCIController) updateMCITrafficBlockClusters(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) error {
+	locatedClusters := sets.NewString()
+	for _, location := range mci.Status.ServiceLocations {
+		locatedClusters.Insert(location.Clusters...)
+	}
+
+	clusterList := &clusterv1alpha1.ClusterList{}
+	if err := c.Client.List(ctx, clusterList); err != nil {
+		klog.Errorf("Failed to list cluster: %v", err)
+		return err
+	}
+
+	var trafficBlockClusters []string
+	for _, cluster := range clusterList.Items {
+		if !locatedClusters.Has(cluster.Name) {
+			continue
+		}
+		for _, action := range cluster.Status.RemedyActions {
+			if action == string(remedyv1alpha1.TrafficControl) {
+				trafficBlockClusters = append(trafficBlockClusters, cluster.Name)
+				break
+			}
+		}
+	}
+	sort.Strings(trafficBlockClusters)
+
+	mciNamespacedName := types.NamespacedName{Namespace: mci.Namespace, Name: mci.Name}
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if reflect.DeepEqual(trafficBlockClusters, mci.Status.TrafficBlockClusters) {
+			return nil
+		}
+		mci.Status.TrafficBlockClusters = trafficBlockClusters
+		updateErr := c.Client.Status().Update(ctx, mci)
+		if updateErr == nil {
+			return nil
+		}
+
+		updatedMCI := &networkingv1alpha1.MultiClusterIngress{}
+		err := c.Client.Get(ctx, mciNamespacedName, updatedMCI)
+		if err == nil {
+			mci = updatedMCI.DeepCopy()
+		} else {
+			klog.Errorf("Failed to get updated multiClusterIngress(%s): %v", mciNamespacedName.String(), err)
+		}
+		return updateErr
+	})
+	if err != nil {
+		klog.Errorf("Failed to sync multiClusterIngress(%s) trafficBlockClusters: %v", mciNamespacedName.String(), err)
+		return err
+	}
+	klog.V(4).Infof("Success to sync multiClusterIngress(%s) trafficBlockClusters", mciNamespacedName.String())
+	return nil
 }
 
 func (c *MCIController) handleMCICreate(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) (controllerruntime.Result, error) {
@@ -190,6 +253,7 @@ func (c *MCIController) setupWatches(ctx context.Context, mciController controll
 	svcEventHandler := newServiceEventHandler(mciEventChan, c.Client)
 	epsEventHandler := newEndpointSlicesEventHandler(svcEventChan)
 	secEventHandler := newSecretEventHandler(mciEventChan, c.Client)
+	clusterHandler := newClusterEventHandler(mciEventChan, c.Client)
 
 	if err := mciController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}), mciEventHandler); err != nil {
 		return err
@@ -207,6 +271,9 @@ func (c *MCIController) setupWatches(ctx context.Context, mciController controll
 		return err
 	}
 	if err := mciController.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), secEventHandler); err != nil {
+		return err
+	}
+	if err := mciController.Watch(source.Kind(mgr.GetCache(), &clusterv1alpha1.Cluster{}), clusterHandler); err != nil {
 		return err
 	}
 	return nil
