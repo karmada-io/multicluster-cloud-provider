@@ -68,7 +68,7 @@ func (p *Provider) LoadBalancer() (multiclusterprovider.LoadBalancer, bool) {
 }
 
 // GetLoadBalancer is a stub implementation of LoadBalancer.GetLoadBalancer.
-func (p *Provider) GetLoadBalancer(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) (*networkingv1.IngressLoadBalancerStatus, bool, error) {
+func (p *Provider) GetLoadBalancer(_ context.Context, mci *networkingv1alpha1.MultiClusterIngress) (*networkingv1.IngressLoadBalancerStatus, bool, error) {
 	p.addCall("get")
 	namespacedName := types.NamespacedName{Namespace: mci.Namespace, Name: mci.Name}.String()
 	for name := range p.Balancers {
@@ -83,7 +83,7 @@ func (p *Provider) GetLoadBalancer(ctx context.Context, mci *networkingv1alpha1.
 }
 
 // EnsureLoadBalancer is a stub implementation of LoadBalancer.EnsureLoadBalancer.
-func (p *Provider) EnsureLoadBalancer(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) (status *networkingv1.IngressLoadBalancerStatus, err error) {
+func (p *Provider) EnsureLoadBalancer(_ context.Context, mci *networkingv1alpha1.MultiClusterIngress) (status *networkingv1.IngressLoadBalancerStatus, err error) {
 	p.addCall("create")
 	if p.Balancers == nil {
 		p.Balancers = make(map[string]Balancer)
@@ -113,7 +113,7 @@ func (p *Provider) EnsureLoadBalancer(ctx context.Context, mci *networkingv1alph
 }
 
 // UpdateLoadBalancer is a stub implementation of LoadBalancer.UpdateLoadBalancer.
-func (p *Provider) UpdateLoadBalancer(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) (status *networkingv1.IngressLoadBalancerStatus, err error) {
+func (p *Provider) UpdateLoadBalancer(_ context.Context, mci *networkingv1alpha1.MultiClusterIngress) (status *networkingv1.IngressLoadBalancerStatus, err error) {
 	p.addCall("update")
 	namespacedName := types.NamespacedName{Namespace: mci.Namespace, Name: mci.Name}.String()
 	lb, exist := p.Balancers[namespacedName]
@@ -135,7 +135,7 @@ func (p *Provider) UpdateLoadBalancer(ctx context.Context, mci *networkingv1alph
 }
 
 // EnsureLoadBalancerDeleted is a stub implementation of LoadBalancer.EnsureLoadBalancerDeleted.
-func (p *Provider) EnsureLoadBalancerDeleted(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) error {
+func (p *Provider) EnsureLoadBalancerDeleted(_ context.Context, mci *networkingv1alpha1.MultiClusterIngress) error {
 	p.addCall("delete")
 	namespacedName := types.NamespacedName{Namespace: mci.Namespace, Name: mci.Name}.String()
 	delete(p.Balancers, namespacedName)
@@ -149,7 +149,7 @@ func (p *Provider) MCSLoadBalancer() (multiclusterprovider.MCSLoadBalancer, bool
 }
 
 // GetMCSLoadBalancer is a stub implementation of LoadBalancer.GetMCSLoadBalancer.
-func (p *Provider) GetMCSLoadBalancer(ctx context.Context, mcs *networkingv1alpha1.MultiClusterService) (status *corev1.LoadBalancerStatus, exist bool, err error) {
+func (p *Provider) GetMCSLoadBalancer(_ context.Context, mcs *networkingv1alpha1.MultiClusterService) (status *corev1.LoadBalancerStatus, exist bool, err error) {
 	p.addCall("get")
 	namespacedName := types.NamespacedName{Namespace: mcs.Namespace, Name: mcs.Name}.String()
 	for name := range p.MCSBalancers {
@@ -164,7 +164,7 @@ func (p *Provider) GetMCSLoadBalancer(ctx context.Context, mcs *networkingv1alph
 }
 
 // EnsureMCSLoadBalancer is a stub implementation of LoadBalancer.EnsureMCSLoadBalancer.
-func (p *Provider) EnsureMCSLoadBalancer(ctx context.Context, mcs *networkingv1alpha1.MultiClusterService) (status *corev1.LoadBalancerStatus, err error) {
+func (p *Provider) EnsureMCSLoadBalancer(_ context.Context, mcs *networkingv1alpha1.MultiClusterService) (status *corev1.LoadBalancerStatus, err error) {
 	p.addCall("create")
 	if p.MCSBalancers == nil {
 		p.MCSBalancers = make(map[string]MCSBalancer)
@@ -192,7 +192,7 @@ func (p *Provider) EnsureMCSLoadBalancer(ctx context.Context, mcs *networkingv1a
 }
 
 // UpdateMCSLoadBalancer is a stub implementation of LoadBalancer.UpdateMCSLoadBalancer.
-func (p *Provider) UpdateMCSLoadBalancer(ctx context.Context, mcs *networkingv1alpha1.MultiClusterService) (status *corev1.LoadBalancerStatus, err error) {
+func (p *Provider) UpdateMCSLoadBalancer(_ context.Context, mcs *networkingv1alpha1.MultiClusterService) (status *corev1.LoadBalancerStatus, err error) {
 	p.addCall("update")
 	namespacedName := types.NamespacedName{Namespace: mcs.Namespace, Name: mcs.Name}.String()
 	lb, exist := p.MCSBalancers[namespacedName]
@@ -212,7 +212,7 @@ func (p *Provider) UpdateMCSLoadBalancer(ctx context.Context, mcs *networkingv1a
 }
 
 // EnsureMCSLoadBalancerDeleted is a stub implementation of LoadBalancer.EnsureMCSLoadBalancerDeleted.
-func (p *Provider) EnsureMCSLoadBalancerDeleted(ctx context.Context, mcs *networkingv1alpha1.MultiClusterService) error {
+func (p *Provider) EnsureMCSLoadBalancerDeleted(_ context.Context, mcs *networkingv1alpha1.MultiClusterService) error {
 	p.addCall("delete")
 	namespacedName := types.NamespacedName{Namespace: mcs.Namespace, Name: mcs.Name}.String()
 	delete(p.MCSBalancers, namespacedName)

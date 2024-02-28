@@ -37,7 +37,7 @@ type multiClusterIngressEventHandler struct {
 	ingClassName string
 }
 
-func (h *multiClusterIngressEventHandler) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Create(_ context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	mci := e.Object.(*networkingv1alpha1.MultiClusterIngress)
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mci, h.ingClassName) {
 		return
@@ -48,7 +48,7 @@ func (h *multiClusterIngressEventHandler) Create(ctx context.Context, e event.Cr
 	}})
 }
 
-func (h *multiClusterIngressEventHandler) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Update(_ context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 	mciOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterIngress)
 	mciNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterIngress)
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mciNew, h.ingClassName) {
@@ -68,12 +68,12 @@ func (h *multiClusterIngressEventHandler) Update(ctx context.Context, e event.Up
 	}})
 }
 
-func (h *multiClusterIngressEventHandler) Delete(ctx context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	// Since finalizer is added to the multiClusterIngress object,
 	// the delete event is processed by the update event.
 }
 
-func (h *multiClusterIngressEventHandler) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Generic(_ context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 	mci := e.Object.(*networkingv1alpha1.MultiClusterIngress)
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mci, h.ingClassName) {
 		return
@@ -98,11 +98,11 @@ type serviceEventHandler struct {
 	client       client.Client
 }
 
-func (h *serviceEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	svcOld := e.ObjectOld.(*corev1.Service)
 	svcNew := e.ObjectNew.(*corev1.Service)
 
@@ -116,11 +116,11 @@ func (h *serviceEventHandler) Update(ctx context.Context, e event.UpdateEvent, _
 	h.enqueueImpactedMCI(svcNew.Namespace, svcNew.Name)
 }
 
-func (h *serviceEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Generic(ctx context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Generic(_ context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
@@ -156,19 +156,19 @@ type endpointSlicesEventHandler struct {
 	svcEventChan chan<- event.GenericEvent
 }
 
-func (h *endpointSlicesEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedSvc(e.ObjectNew)
 }
 
-func (h *endpointSlicesEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Generic(ctx context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
 }
 
 func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
@@ -201,11 +201,11 @@ type secretEventHandler struct {
 	client       client.Client
 }
 
-func (h *secretEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *secretEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	secretOld := e.ObjectOld.(*corev1.Secret)
 	secretNew := e.ObjectNew.(*corev1.Secret)
 
@@ -218,7 +218,7 @@ func (h *secretEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ 
 	h.enqueueImpactedMCI(secretNew.Namespace, secretNew.Name)
 }
 
-func (h *secretEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
@@ -239,5 +239,5 @@ func (h *secretEventHandler) enqueueImpactedMCI(secretNamespace, secretName stri
 	}
 }
 
-func (h *secretEventHandler) Generic(ctx context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
 }

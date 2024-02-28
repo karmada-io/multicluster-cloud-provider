@@ -35,7 +35,7 @@ type serviceEventHandler struct {
 	client client.Client
 }
 
-func (h *serviceEventHandler) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Create(_ context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	mciList := &networkingv1alpha1.MultiClusterIngressList{}
 	if err := h.client.List(h.ctx, mciList,
 		client.InNamespace(e.Object.GetNamespace()),
@@ -68,17 +68,17 @@ func (h *serviceEventHandler) Create(ctx context.Context, e event.CreateEvent, q
 		}})
 }
 
-func (h *serviceEventHandler) Update(ctx context.Context, _ event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Update(_ context.Context, _ event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	// We only need to create ServiceExport based on the service and propagate it to
 	// member clusters. Therefore, we do not need to pay attention to service update.
 }
 
-func (h *serviceEventHandler) Delete(ctx context.Context, _ event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	// We will add an ownerReference to the service object on the ServiceExport
 	// object, so that cleanup will be handled by gc controller.
 }
 
-func (h *serviceEventHandler) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Generic(_ context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 	queue.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: e.Object.GetNamespace(),
@@ -104,7 +104,7 @@ type multiClusterIngressEventHandler struct {
 	ingClassName string
 }
 
-func (h *multiClusterIngressEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	mci := e.Object.(*networkingv1alpha1.MultiClusterIngress)
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mci, h.ingClassName) {
 		return
@@ -112,7 +112,7 @@ func (h *multiClusterIngressEventHandler) Create(ctx context.Context, e event.Cr
 	h.enqueueImpactedService(mci)
 }
 
-func (h *multiClusterIngressEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	mciOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterIngress)
 	mciNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterIngress)
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mciNew, h.ingClassName) {
@@ -148,7 +148,7 @@ func (h *multiClusterIngressEventHandler) Update(ctx context.Context, e event.Up
 	}
 }
 
-func (h *multiClusterIngressEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	mci := e.Object.(*networkingv1alpha1.MultiClusterIngress)
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mci, h.ingClassName) {
 		return
@@ -156,7 +156,7 @@ func (h *multiClusterIngressEventHandler) Delete(ctx context.Context, e event.De
 	h.enqueueImpactedService(mci)
 }
 
-func (h *multiClusterIngressEventHandler) Generic(ctx context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
 }
 
 func (h *multiClusterIngressEventHandler) enqueueImpactedService(mci *networkingv1alpha1.MultiClusterIngress) {
@@ -191,11 +191,11 @@ type multiClusterServiceEventHandler struct {
 	svcEventChan chan<- event.GenericEvent
 }
 
-func (h *multiClusterServiceEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedService(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *multiClusterServiceEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	mcsOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterService)
 	mcsNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterService)
 
@@ -209,11 +209,11 @@ func (h *multiClusterServiceEventHandler) Update(ctx context.Context, e event.Up
 	h.enqueueImpactedService(mcsNew.Namespace, mcsNew.Name)
 }
 
-func (h *multiClusterServiceEventHandler) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	h.enqueueImpactedService(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *multiClusterServiceEventHandler) Generic(ctx context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
 }
 
 func (h *multiClusterServiceEventHandler) enqueueImpactedService(namespace, name string) {
@@ -237,7 +237,7 @@ type resourceBindingEventHandler struct {
 	svcEventChan chan<- event.GenericEvent
 }
 
-func (h *resourceBindingEventHandler) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *resourceBindingEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
 	// The distribution feature involves directly creating rb objects,
 	// so it is necessary to care about the rb creation event.
 	rb := e.Object.(*workv1alpha1.ResourceBinding)
@@ -252,7 +252,7 @@ func (h *resourceBindingEventHandler) Create(ctx context.Context, e event.Create
 			}}}
 }
 
-func (h *resourceBindingEventHandler) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *resourceBindingEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
 	rbOlb := e.ObjectOld.(*workv1alpha1.ResourceBinding)
 	rbNew := e.ObjectNew.(*workv1alpha1.ResourceBinding)
 
@@ -275,10 +275,10 @@ func (h *resourceBindingEventHandler) Update(ctx context.Context, e event.Update
 			}}}
 }
 
-func (h *resourceBindingEventHandler) Delete(ctx context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *resourceBindingEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	// The deletion event of the resourceBinding will be
 	// processed by the deletion event of service.
 }
 
-func (h *resourceBindingEventHandler) Generic(ctx context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *resourceBindingEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
 }
