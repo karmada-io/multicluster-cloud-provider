@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	multiclusterprovider "github.com/karmada-io/multicluster-cloud-provider"
 	"github.com/karmada-io/multicluster-cloud-provider/options"
@@ -39,6 +40,7 @@ func init() {
 	controllers["multiclusterservice"] = startMCSController
 	controllers["crd-installation"] = startCRDInstallationController
 	controllers["serviceexport-propagation"] = startServiceExportPropagationController
+	controllers["mci-service-locations"] = startMCIServiceLocationsController
 }
 
 // InitProviderFunc is used to initialize multicluster provider
@@ -105,7 +107,7 @@ func Run(ctx context.Context, opts *options.MultiClusterControllerManagerOptions
 	controllerManager, err := controllerruntime.NewManager(config, controllerruntime.Options{
 		Logger:                     klog.Background(),
 		Scheme:                     gclient.NewSchema(),
-		SyncPeriod:                 &opts.ResyncPeriod.Duration,
+		Cache:                      cache.Options{SyncPeriod: &opts.ResyncPeriod.Duration},
 		LeaderElection:             opts.LeaderElection.LeaderElect,
 		LeaderElectionID:           opts.LeaderElection.ResourceName,
 		LeaderElectionNamespace:    opts.LeaderElection.ResourceNamespace,
@@ -115,7 +117,7 @@ func Run(ctx context.Context, opts *options.MultiClusterControllerManagerOptions
 		LeaderElectionResourceLock: opts.LeaderElection.ResourceLock,
 		HealthProbeBindAddress:     net.JoinHostPort(opts.BindAddress, strconv.Itoa(opts.SecurePort)),
 		LivenessEndpointName:       "/healthz",
-		MetricsBindAddress:         opts.MetricsBindAddress,
+		Metrics:                    metricsserver.Options{BindAddress: opts.MetricsBindAddress},
 		MapperProvider:             restmapper.MapperProvider,
 		BaseContext: func() context.Context {
 			return ctx
