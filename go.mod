@@ -1,9 +1,9 @@
 module github.com/karmada-io/multicluster-cloud-provider
 
-go 1.19
+go 1.20
 
 require (
-	github.com/karmada-io/karmada v1.9.0-preview5.0.20240227142131-bc9316705c36
+	github.com/karmada-io/karmada v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5

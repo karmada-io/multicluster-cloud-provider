@@ -1,9 +1,7 @@
 package main
 
 import (
-	"math/rand"
 	"os"
-	"time"
 
 	"k8s.io/component-base/cli"
 	cliflag "k8s.io/component-base/cli/flag"
@@ -19,8 +17,6 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
 	ctx := controllerruntime.SetupSignalHandler()
 	opts := options.NewClusterControllerManagerOptions()
 	fss := cliflag.NamedFlagSets{}
