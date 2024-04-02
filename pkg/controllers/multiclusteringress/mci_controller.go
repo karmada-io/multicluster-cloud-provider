@@ -91,9 +91,11 @@ func (c *MCIController) handleMCIDelete(ctx context.Context, mci *networkingv1al
 func (c *MCIController) handleMCICreateOrUpdate(ctx context.Context, mci *networkingv1alpha1.MultiClusterIngress) (controllerruntime.Result, error) {
 	klog.V(4).InfoS("Begin to handle multiClusterIngress create or update event", "namespace", mci.Namespace, "name", mci.Name)
 
-	finalizersUpdated := controllerutil.AddFinalizer(mci, MCIControllerFinalizer)
-	if finalizersUpdated {
-		err := c.Client.Update(ctx, mci)
+	if !controllerutil.ContainsFinalizer(mci, MCIControllerFinalizer) {
+		objPatch := client.MergeFrom(mci)
+		modifiedObj := mci.DeepCopy()
+		controllerutil.AddFinalizer(modifiedObj, MCIControllerFinalizer)
+		err := c.Client.Patch(ctx, modifiedObj, objPatch)
 		if err != nil {
 			klog.V(4).ErrorS(err, "failed to update mci with finalizer", "namespace", mci.Namespace, "name", mci.Name)
 			return controllerruntime.Result{}, err
