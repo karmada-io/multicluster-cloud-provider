@@ -36,3 +36,33 @@ jobs:
       run: go build -v ./...
     - name: Test
       run: go test -v ./...
+  e2e:
+    name: e2e test
+    needs: build
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        k8s: [ v1.24.2, v1.25.1, v1.26.0 ]
+    steps:
+      - name: install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.4
+      - name: checkout  karmada code
+        uses: actions/checkout@v3
+        with:
+          repository: karmada-io/karmada
+          ref: master
+      - name: setup e2e test environment
+        run: |
+          export CLUSTER_VERSION=kindest/node:${{ matrix.k8s }}
+          hack/local-up-karmada.sh
+      - name: checkout local code
+        uses: actions/checkout@v3
+        with:
+          # Number of commits to fetch. 0 indicates all history for all branches and tags.
+          # We need to guess version via git tags.
+          fetch-depth: 0
+      - name: deploy multicluster provider
+        run: |
+          hack/deploy-provider.sh
