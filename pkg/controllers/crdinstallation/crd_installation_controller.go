@@ -6,6 +6,7 @@ import (
 	clusterv1alpha1 "github.com/karmada-io/karmada/pkg/apis/cluster/v1alpha1"
 	policyv1alpha1 "github.com/karmada-io/karmada/pkg/apis/policy/v1alpha1"
 	"github.com/karmada-io/karmada/pkg/sharedcli/ratelimiterflag"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,7 +145,20 @@ func clusterPropagationPolicy(clusters []string) *policyv1alpha1.ClusterPropagat
 			Placement: policyv1alpha1.Placement{
 				ClusterAffinity: &policyv1alpha1.ClusterAffinity{
 					ClusterNames: clusters,
-				}}}}
+				},
+				ClusterTolerations: []corev1.Toleration{
+					{
+						Key:      clusterv1alpha1.TaintClusterNotReady,
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoExecute,
+					},
+					{
+						Key:      clusterv1alpha1.TaintClusterUnreachable,
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoExecute,
+					},
+				},
+			}}}
 }
 
 // SetupWithManager creates a controller and register to controller manager.
