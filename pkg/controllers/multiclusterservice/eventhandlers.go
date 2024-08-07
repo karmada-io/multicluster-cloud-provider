@@ -154,7 +154,7 @@ func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.GenericE
 func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
 	svcName, ok := obj.GetLabels()[discoveryv1.LabelServiceName]
 	if !ok {
-		klog.Warning("Can not get the key(%s) with the endpointSlices object(%s/%s)",
+		klog.Warningf("Can not get the key(%s) with the endpointSlices object(%s/%s)",
 			discoveryv1.LabelServiceName, obj.GetNamespace(), obj.GetName())
 		return
 	}
