@@ -192,6 +192,6 @@ func (c *Controller) SetupWithManager(mgr controllerruntime.Manager) error {
 	return controllerruntime.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.MultiClusterIngress{}, builder.WithPredicates(mciPredicateFuncs)).
 		Watches(&workv1alpha2.ResourceBinding{}, handler.EnqueueRequestsFromMapFunc(rbMapFunc), builder.WithPredicates(rbPredicateFuncs)).
-		WithOptions(controller.Options{RateLimiter: ratelimiterflag.DefaultControllerRateLimiter(c.RateLimiterOptions)}).
+		WithOptions(controller.Options{RateLimiter: ratelimiterflag.DefaultControllerRateLimiter[controllerruntime.Request](c.RateLimiterOptions)}).
 		Complete(c)
 }

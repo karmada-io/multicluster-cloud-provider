@@ -287,7 +287,7 @@ func (c *Controller) SetupWithManager(ctx context.Context, mgr controllerruntime
 	serviceExportController, err := controller.New(ControllerName, mgr,
 		controller.Options{
 			Reconciler:  c,
-			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter(c.RateLimiterOptions),
+			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter[controllerruntime.Request](c.RateLimiterOptions),
 		})
 	if err != nil {
 		return err
@@ -301,26 +301,26 @@ func (c *Controller) SetupWithManager(ctx context.Context, mgr controllerruntime
 }
 
 func (c *Controller) setupWatches(ctx context.Context, serviceExportController controller.Controller, mgr controllerruntime.Manager) error {
-	svcEventChan := make(chan event.GenericEvent)
+	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 
 	svcEventHandler := newServiceEventHandler(ctx, c.Client)
 	mciEventHandler := newMultiClusterIngressEventHandler(ctx, c.Client, svcEventChan, c.ProviderClassName)
 	mcsEventHandler := newMultiClusterServiceEventHandler(ctx, c.Client, svcEventChan)
 	rbEventHandler := newResourceBindingEventHandler(svcEventChan)
 
-	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), svcEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind[*corev1.Service](mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Channel[*corev1.Service](svcEventChan, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}), mciEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind[*networkingv1alpha1.MultiClusterIngress](mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}, mciEventHandler)); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterService{}), mcsEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind[*networkingv1alpha1.MultiClusterService](mgr.GetCache(), &networkingv1alpha1.MultiClusterService{}, mcsEventHandler)); err != nil {
 		return err
 	}
-	if err := serviceExportController.Watch(source.Kind(mgr.GetCache(), &workv1alpha1.ResourceBinding{}), rbEventHandler); err != nil {
+	if err := serviceExportController.Watch(source.Kind[*workv1alpha1.ResourceBinding](mgr.GetCache(), &workv1alpha1.ResourceBinding{}, rbEventHandler)); err != nil {
 		return err
 	}
 	return nil

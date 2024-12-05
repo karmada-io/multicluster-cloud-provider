@@ -243,7 +243,7 @@ func (c *MCSController) SetupWithManager(_ context.Context, mgr controllerruntim
 	mcsController, err := controller.New(ControllerName, mgr,
 		controller.Options{
 			Reconciler:  c,
-			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter(c.RateLimiterOptions),
+			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter[controllerruntime.Request](c.RateLimiterOptions),
 		})
 	if err != nil {
 		return err
@@ -257,26 +257,26 @@ func (c *MCSController) SetupWithManager(_ context.Context, mgr controllerruntim
 }
 
 func (c *MCSController) setupWatches(mcsController controller.Controller, mgr controllerruntime.Manager) error {
-	mcsEventChan := make(chan event.GenericEvent)
-	svcEventChan := make(chan event.GenericEvent)
+	mcsEventChan := make(chan event.TypedGenericEvent[*networkingv1alpha1.MultiClusterService])
+	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 
 	mcsEventHandler := newMultiClusterServiceEventHandler()
 	svcEventHandler := newServiceEventHandler(mcsEventChan, c.Client)
 	epsEventHandler := newEndpointSlicesEventHandler(svcEventChan)
 
-	if err := mcsController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterService{}), mcsEventHandler); err != nil {
+	if err := mcsController.Watch(source.Kind[*networkingv1alpha1.MultiClusterService](mgr.GetCache(), &networkingv1alpha1.MultiClusterService{}, mcsEventHandler)); err != nil {
 		return err
 	}
-	if err := mcsController.Watch(&source.Channel{Source: mcsEventChan}, mcsEventHandler); err != nil {
+	if err := mcsController.Watch(source.Channel[*networkingv1alpha1.MultiClusterService](mcsEventChan, mcsEventHandler)); err != nil {
 		return err
 	}
-	if err := mcsController.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), svcEventHandler); err != nil {
+	if err := mcsController.Watch(source.Kind[*corev1.Service](mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := mcsController.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
+	if err := mcsController.Watch(source.Channel[*corev1.Service](svcEventChan, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := mcsController.Watch(source.Kind(mgr.GetCache(), &discoveryv1.EndpointSlice{}), epsEventHandler); err != nil {
+	if err := mcsController.Watch(source.Kind[*discoveryv1.EndpointSlice](mgr.GetCache(), &discoveryv1.EndpointSlice{}, epsEventHandler)); err != nil {
 		return err
 	}
 	return nil
