@@ -196,7 +196,7 @@ func (r *Controller) SetupWithManager(_ context.Context, mgr controllerruntime.M
 			handler.EnqueueRequestsFromMapFunc(cppHandlerFn), cppFilter).
 		WithEventFilter(clusterFilter).
 		WithOptions(controller.Options{
-			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter(r.RateLimiterOptions),
+			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter[controllerruntime.Request](r.RateLimiterOptions),
 		}).
 		Complete(r)
 }

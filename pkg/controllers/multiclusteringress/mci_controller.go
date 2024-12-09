@@ -234,7 +234,7 @@ func (c *MCIController) SetupWithManager(ctx context.Context, mgr controllerrunt
 	mciController, err := controller.New(ControllerName, mgr,
 		controller.Options{
 			Reconciler:  c,
-			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter(c.RateLimiterOptions),
+			RateLimiter: ratelimiterflag.DefaultControllerRateLimiter[controllerruntime.Request](c.RateLimiterOptions),
 		})
 	if err != nil {
 		return err
@@ -248,8 +248,8 @@ func (c *MCIController) SetupWithManager(ctx context.Context, mgr controllerrunt
 }
 
 func (c *MCIController) setupWatches(ctx context.Context, mciController controller.Controller, mgr controllerruntime.Manager) error {
-	mciEventChan := make(chan event.GenericEvent)
-	svcEventChan := make(chan event.GenericEvent)
+	mciEventChan := make(chan event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress])
+	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 
 	mciEventHandler := newMultiClusterIngressEventHandler(ctx, c.Client, c.ProviderClassName)
 	svcEventHandler := newServiceEventHandler(mciEventChan, c.Client)
@@ -257,25 +257,25 @@ func (c *MCIController) setupWatches(ctx context.Context, mciController controll
 	secEventHandler := newSecretEventHandler(mciEventChan, c.Client)
 	clusterHandler := newClusterEventHandler(mciEventChan, c.Client)
 
-	if err := mciController.Watch(source.Kind(mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}), mciEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind[*networkingv1alpha1.MultiClusterIngress](mgr.GetCache(), &networkingv1alpha1.MultiClusterIngress{}, mciEventHandler)); err != nil {
 		return err
 	}
-	if err := mciController.Watch(&source.Channel{Source: mciEventChan}, mciEventHandler); err != nil {
+	if err := mciController.Watch(source.Channel[*networkingv1alpha1.MultiClusterIngress](mciEventChan, mciEventHandler)); err != nil {
 		return err
 	}
-	if err := mciController.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), svcEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind[*corev1.Service](mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := mciController.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
+	if err := mciController.Watch(source.Channel[*corev1.Service](svcEventChan, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := mciController.Watch(source.Kind(mgr.GetCache(), &discoveryv1.EndpointSlice{}), epsEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind[*discoveryv1.EndpointSlice](mgr.GetCache(), &discoveryv1.EndpointSlice{}, epsEventHandler)); err != nil {
 		return err
 	}
-	if err := mciController.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), secEventHandler); err != nil {
+	if err := mciController.Watch(source.Kind[*corev1.Secret](mgr.GetCache(), &corev1.Secret{}, secEventHandler)); err != nil {
 		return err
 	}
-	if err := mciController.Watch(source.Kind(mgr.GetCache(), &clusterv1alpha1.Cluster{}), clusterHandler); err != nil {
+	if err := mciController.Watch(source.Kind[*clusterv1alpha1.Cluster](mgr.GetCache(), &clusterv1alpha1.Cluster{}, clusterHandler)); err != nil {
 		return err
 	}
 	return nil

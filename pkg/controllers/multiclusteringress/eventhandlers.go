@@ -23,7 +23,7 @@ import (
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/util"
 )
 
-func newMultiClusterIngressEventHandler(ctx context.Context, client client.Client, providerClassName string) handler.EventHandler {
+func newMultiClusterIngressEventHandler(ctx context.Context, client client.Client, providerClassName string) handler.TypedEventHandler[*networkingv1alpha1.MultiClusterIngress, reconcile.Request] {
 	return &multiClusterIngressEventHandler{
 		ctx:          ctx,
 		client:       client,
@@ -31,7 +31,7 @@ func newMultiClusterIngressEventHandler(ctx context.Context, client client.Clien
 	}
 }
 
-var _ handler.EventHandler = (*multiClusterIngressEventHandler)(nil)
+var _ handler.TypedEventHandler[*networkingv1alpha1.MultiClusterIngress, reconcile.Request] = (*multiClusterIngressEventHandler)(nil)
 
 type multiClusterIngressEventHandler struct {
 	ctx          context.Context
@@ -39,9 +39,8 @@ type multiClusterIngressEventHandler struct {
 	ingClassName string
 }
 
-func (h *multiClusterIngressEventHandler) Create(_ context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	mci := e.Object.(*networkingv1alpha1.MultiClusterIngress)
-	if !util.CheckIngressClassMatched(h.ctx, h.client, mci, h.ingClassName) {
+func (h *multiClusterIngressEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*networkingv1alpha1.MultiClusterIngress], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if !util.CheckIngressClassMatched(h.ctx, h.client, e.Object, h.ingClassName) {
 		return
 	}
 	queue.Add(reconcile.Request{NamespacedName: types.NamespacedName{
@@ -50,9 +49,9 @@ func (h *multiClusterIngressEventHandler) Create(_ context.Context, e event.Crea
 	}})
 }
 
-func (h *multiClusterIngressEventHandler) Update(_ context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	mciOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterIngress)
-	mciNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterIngress)
+func (h *multiClusterIngressEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*networkingv1alpha1.MultiClusterIngress], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	mciOld := e.ObjectOld
+	mciNew := e.ObjectNew
 	if !util.CheckIngressClassMatched(h.ctx, h.client, mciNew, h.ingClassName) {
 		return
 	}
@@ -70,14 +69,13 @@ func (h *multiClusterIngressEventHandler) Update(_ context.Context, e event.Upda
 	}})
 }
 
-func (h *multiClusterIngressEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterIngressEventHandler) Delete(_ context.Context, _ event.TypedDeleteEvent[*networkingv1alpha1.MultiClusterIngress], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// Since finalizer is added to the multiClusterIngress object,
 	// the delete event is processed by the update event.
 }
 
-func (h *multiClusterIngressEventHandler) Generic(_ context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
-	mci := e.Object.(*networkingv1alpha1.MultiClusterIngress)
-	if !util.CheckIngressClassMatched(h.ctx, h.client, mci, h.ingClassName) {
+func (h *multiClusterIngressEventHandler) Generic(_ context.Context, e event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if !util.CheckIngressClassMatched(h.ctx, h.client, e.Object, h.ingClassName) {
 		return
 	}
 	queue.Add(reconcile.Request{NamespacedName: types.NamespacedName{
@@ -86,27 +84,27 @@ func (h *multiClusterIngressEventHandler) Generic(_ context.Context, e event.Gen
 	}})
 }
 
-func newServiceEventHandler(mciEventChan chan<- event.GenericEvent, client client.Client) handler.EventHandler {
+func newServiceEventHandler(mciEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress], client client.Client) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &serviceEventHandler{
 		mciEventChan: mciEventChan,
 		client:       client,
 	}
 }
 
-var _ handler.EventHandler = (*serviceEventHandler)(nil)
+var _ handler.TypedEventHandler[*corev1.Service, reconcile.Request] = (*serviceEventHandler)(nil)
 
 type serviceEventHandler struct {
-	mciEventChan chan<- event.GenericEvent
+	mciEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress]
 	client       client.Client
 }
 
-func (h *serviceEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	svcOld := e.ObjectOld.(*corev1.Service)
-	svcNew := e.ObjectNew.(*corev1.Service)
+func (h *serviceEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	svcOld := e.ObjectOld
+	svcNew := e.ObjectNew
 
 	// We only care about the update events below:
 	if equality.Semantic.DeepEqual(svcOld.Annotations, svcNew.Annotations) &&
@@ -118,11 +116,11 @@ func (h *serviceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ w
 	h.enqueueImpactedMCI(svcNew.Namespace, svcNew.Name)
 }
 
-func (h *serviceEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Generic(_ context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Generic(_ context.Context, e event.TypedGenericEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
@@ -137,7 +135,7 @@ func (h *serviceEventHandler) enqueueImpactedMCI(svcNamespace, svcName string) {
 
 	for index := range mciList.Items {
 		mci := &mciList.Items[index]
-		h.mciEventChan <- event.GenericEvent{
+		h.mciEventChan <- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress]{
 			Object: mci,
 		}
 	}
@@ -146,31 +144,31 @@ func (h *serviceEventHandler) enqueueImpactedMCI(svcNamespace, svcName string) {
 // endpointSlicePrefix is the prefix of service derived from ServiceImport.
 const derivedServicePrefix = "derived-"
 
-func newEndpointSlicesEventHandler(svcEventChan chan<- event.GenericEvent) handler.EventHandler {
+func newEndpointSlicesEventHandler(svcEventChan chan<- event.TypedGenericEvent[*corev1.Service]) handler.TypedEventHandler[*discoveryv1.EndpointSlice, reconcile.Request] {
 	return &endpointSlicesEventHandler{
 		svcEventChan: svcEventChan,
 	}
 }
 
-var _ handler.EventHandler = (*endpointSlicesEventHandler)(nil)
+var _ handler.TypedEventHandler[*discoveryv1.EndpointSlice, reconcile.Request] = (*endpointSlicesEventHandler)(nil)
 
 type endpointSlicesEventHandler struct {
-	svcEventChan chan<- event.GenericEvent
+	svcEventChan chan<- event.TypedGenericEvent[*corev1.Service]
 }
 
-func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedSvc(e.ObjectNew)
 }
 
-func (h *endpointSlicesEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.TypedGenericEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
@@ -181,7 +179,7 @@ func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
 		return
 	}
 
-	h.svcEventChan <- event.GenericEvent{
+	h.svcEventChan <- event.TypedGenericEvent[*corev1.Service]{
 		Object: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: obj.GetNamespace(),
@@ -189,27 +187,27 @@ func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
 			}}}
 }
 
-func newSecretEventHandler(mciEventChan chan<- event.GenericEvent, client client.Client) handler.EventHandler {
+func newSecretEventHandler(mciEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress], client client.Client) handler.TypedEventHandler[*corev1.Secret, reconcile.Request] {
 	return &secretEventHandler{
 		mciEventChan: mciEventChan,
 		client:       client,
 	}
 }
 
-var _ handler.EventHandler = (*secretEventHandler)(nil)
+var _ handler.TypedEventHandler[*corev1.Secret, reconcile.Request] = (*secretEventHandler)(nil)
 
 type secretEventHandler struct {
-	mciEventChan chan<- event.GenericEvent
+	mciEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress]
 	client       client.Client
 }
 
-func (h *secretEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *secretEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	secretOld := e.ObjectOld.(*corev1.Secret)
-	secretNew := e.ObjectNew.(*corev1.Secret)
+func (h *secretEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	secretOld := e.ObjectOld
+	secretNew := e.ObjectNew
 
 	if equality.Semantic.DeepEqual(secretOld.Annotations, secretNew.Annotations) &&
 		equality.Semantic.DeepEqual(secretOld.Data, secretNew.Data) &&
@@ -220,7 +218,7 @@ func (h *secretEventHandler) Update(_ context.Context, e event.UpdateEvent, _ wo
 	h.enqueueImpactedMCI(secretNew.Namespace, secretNew.Name)
 }
 
-func (h *secretEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
@@ -235,35 +233,36 @@ func (h *secretEventHandler) enqueueImpactedMCI(secretNamespace, secretName stri
 
 	for index := range mciList.Items {
 		mci := &mciList.Items[index]
-		h.mciEventChan <- event.GenericEvent{
+		h.mciEventChan <- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress]{
 			Object: mci,
 		}
 	}
 }
 
-func (h *secretEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *secretEventHandler) Generic(_ context.Context, _ event.TypedGenericEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+
 }
 
-func newClusterEventHandler(mciEventChan chan<- event.GenericEvent, client client.Client) handler.EventHandler {
+func newClusterEventHandler(mciEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress], client client.Client) handler.TypedEventHandler[*clusterv1alpha1.Cluster, reconcile.Request] {
 	return &clusterEventHandler{
 		client:       client,
 		mciEventChan: mciEventChan,
 	}
 }
 
-var _ handler.EventHandler = (*clusterEventHandler)(nil)
+var _ handler.TypedEventHandler[*clusterv1alpha1.Cluster, reconcile.Request] = (*clusterEventHandler)(nil)
 
 type clusterEventHandler struct {
 	client       client.Client
-	mciEventChan chan<- event.GenericEvent
+	mciEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress]
 }
 
-func (h *clusterEventHandler) Create(_ context.Context, _ event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *clusterEventHandler) Create(_ context.Context, _ event.TypedCreateEvent[*clusterv1alpha1.Cluster], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
-func (h *clusterEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	oldCluster := e.ObjectOld.(*clusterv1alpha1.Cluster)
-	newCluster := e.ObjectNew.(*clusterv1alpha1.Cluster)
+func (h *clusterEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*clusterv1alpha1.Cluster], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	oldCluster := e.ObjectOld
+	newCluster := e.ObjectNew
 	oldExist, newExist := false, false
 	for _, action := range oldCluster.Status.RemedyActions {
 		if action == string(remedyv1alpha1.TrafficControl) {
@@ -293,16 +292,16 @@ func (h *clusterEventHandler) Update(_ context.Context, e event.UpdateEvent, _ w
 		if !mciSvcLocationsContainsCluster(mci, newCluster) {
 			continue
 		}
-		h.mciEventChan <- event.GenericEvent{
+		h.mciEventChan <- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterIngress]{
 			Object: mci,
 		}
 	}
 }
 
-func (h *clusterEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *clusterEventHandler) Delete(_ context.Context, _ event.TypedDeleteEvent[*clusterv1alpha1.Cluster], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
-func (h *clusterEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *clusterEventHandler) Generic(_ context.Context, _ event.TypedGenericEvent[*clusterv1alpha1.Cluster], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 func mciSvcLocationsContainsCluster(mci *networkingv1alpha1.MultiClusterIngress, cluster *clusterv1alpha1.Cluster) bool {

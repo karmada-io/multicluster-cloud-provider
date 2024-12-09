@@ -20,30 +20,29 @@ import (
 	"github.com/karmada-io/multicluster-cloud-provider/pkg/util"
 )
 
-func newMultiClusterServiceEventHandler() handler.EventHandler {
+func newMultiClusterServiceEventHandler() handler.TypedEventHandler[*networkingv1alpha1.MultiClusterService, reconcile.Request] {
 	return &multiClusterServiceEventHandler{}
 }
 
-var _ handler.EventHandler = (*multiClusterServiceEventHandler)(nil)
+var _ handler.TypedEventHandler[*networkingv1alpha1.MultiClusterService, reconcile.Request] = (*multiClusterServiceEventHandler)(nil)
 
 type multiClusterServiceEventHandler struct {
 }
 
-func (h *multiClusterServiceEventHandler) Create(_ context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	mcs := e.Object.(*networkingv1alpha1.MultiClusterService)
-	if !util.MCSContainLoadBalanceType(mcs) {
+func (h *multiClusterServiceEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*networkingv1alpha1.MultiClusterService], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if !util.MCSContainLoadBalanceType(e.Object) {
 		return
 	}
 
 	queue.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-		Namespace: mcs.Namespace,
-		Name:      mcs.Name,
+		Namespace: e.Object.Namespace,
+		Name:      e.Object.Name,
 	}})
 }
 
-func (h *multiClusterServiceEventHandler) Update(_ context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	mcsOld := e.ObjectOld.(*networkingv1alpha1.MultiClusterService)
-	mcsNew := e.ObjectNew.(*networkingv1alpha1.MultiClusterService)
+func (h *multiClusterServiceEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*networkingv1alpha1.MultiClusterService], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	mcsOld := e.ObjectOld
+	mcsNew := e.ObjectNew
 	if !util.MCSContainLoadBalanceType(mcsOld) && !util.MCSContainLoadBalanceType(mcsNew) {
 		return
 	}
@@ -61,39 +60,39 @@ func (h *multiClusterServiceEventHandler) Update(_ context.Context, e event.Upda
 	}})
 }
 
-func (h *multiClusterServiceEventHandler) Delete(_ context.Context, _ event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Delete(_ context.Context, _ event.TypedDeleteEvent[*networkingv1alpha1.MultiClusterService], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// Since finalizer is added to the MultiClusterService object,
 	// the delete event is processed by the update event.
 }
 
-func (h *multiClusterServiceEventHandler) Generic(_ context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *multiClusterServiceEventHandler) Generic(_ context.Context, e event.TypedGenericEvent[*networkingv1alpha1.MultiClusterService], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	queue.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Namespace: e.Object.GetNamespace(),
 		Name:      e.Object.GetName(),
 	}})
 }
 
-func newServiceEventHandler(mcsEventChan chan<- event.GenericEvent, client client.Client) handler.EventHandler {
+func newServiceEventHandler(mcsEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterService], client client.Client) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &serviceEventHandler{
 		mcsEventChan: mcsEventChan,
 		client:       client,
 	}
 }
 
-var _ handler.EventHandler = (*serviceEventHandler)(nil)
+var _ handler.TypedEventHandler[*corev1.Service, reconcile.Request] = (*serviceEventHandler)(nil)
 
 type serviceEventHandler struct {
-	mcsEventChan chan<- event.GenericEvent
+	mcsEventChan chan<- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterService]
 	client       client.Client
 }
 
-func (h *serviceEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCS(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	svcOld := e.ObjectOld.(*corev1.Service)
-	svcNew := e.ObjectNew.(*corev1.Service)
+func (h *serviceEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	svcOld := e.ObjectOld
+	svcNew := e.ObjectNew
 
 	// We only care about the update events below:
 	if equality.Semantic.DeepEqual(svcOld.Annotations, svcNew.Annotations) &&
@@ -104,16 +103,16 @@ func (h *serviceEventHandler) Update(_ context.Context, e event.UpdateEvent, _ w
 	h.enqueueImpactedMCS(svcNew.Namespace, svcNew.Name)
 }
 
-func (h *serviceEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCS(e.Object.GetNamespace(), e.Object.GetName())
 }
 
-func (h *serviceEventHandler) Generic(_ context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *serviceEventHandler) Generic(_ context.Context, e event.TypedGenericEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedMCS(e.Object.GetNamespace(), e.Object.GetName())
 }
 
 func (h *serviceEventHandler) enqueueImpactedMCS(svcNamespace, svcName string) {
-	h.mcsEventChan <- event.GenericEvent{
+	h.mcsEventChan <- event.TypedGenericEvent[*networkingv1alpha1.MultiClusterService]{
 		Object: &networkingv1alpha1.MultiClusterService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: svcNamespace,
@@ -124,31 +123,31 @@ func (h *serviceEventHandler) enqueueImpactedMCS(svcNamespace, svcName string) {
 // endpointSlicePrefix is the prefix of service derived from ServiceImport.
 const derivedServicePrefix = "derived-"
 
-func newEndpointSlicesEventHandler(svcEventChan chan<- event.GenericEvent) handler.EventHandler {
+func newEndpointSlicesEventHandler(svcEventChan chan<- event.TypedGenericEvent[*corev1.Service]) handler.TypedEventHandler[*discoveryv1.EndpointSlice, reconcile.Request] {
 	return &endpointSlicesEventHandler{
 		svcEventChan: svcEventChan,
 	}
 }
 
-var _ handler.EventHandler = (*endpointSlicesEventHandler)(nil)
+var _ handler.TypedEventHandler[*discoveryv1.EndpointSlice, reconcile.Request] = (*endpointSlicesEventHandler)(nil)
 
 type endpointSlicesEventHandler struct {
-	svcEventChan chan<- event.GenericEvent
+	svcEventChan chan<- event.TypedGenericEvent[*corev1.Service]
 }
 
-func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Update(_ context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Update(_ context.Context, e event.TypedUpdateEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedSvc(e.ObjectNew)
 }
 
-func (h *endpointSlicesEventHandler) Delete(_ context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.enqueueImpactedSvc(e.Object)
 }
 
-func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *endpointSlicesEventHandler) Generic(_ context.Context, _ event.TypedGenericEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
@@ -159,7 +158,7 @@ func (h *endpointSlicesEventHandler) enqueueImpactedSvc(obj client.Object) {
 		return
 	}
 
-	h.svcEventChan <- event.GenericEvent{
+	h.svcEventChan <- event.TypedGenericEvent[*corev1.Service]{
 		Object: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: obj.GetNamespace(),
