@@ -40,7 +40,7 @@ type multiClusterIngressEventHandler struct {
 }
 
 func (h *multiClusterIngressEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*networkingv1alpha1.MultiClusterIngress], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	klog.Infof("mci(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
+	klog.V(4).Infof("mci(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
 	if !util.CheckIngressClassMatched(h.ctx, h.client, e.Object, h.ingClassName) {
 		return
 	}
@@ -100,7 +100,7 @@ type serviceEventHandler struct {
 }
 
 func (h *serviceEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	klog.Infof("service(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
+	klog.V(4).Infof("service(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
@@ -159,7 +159,7 @@ type endpointSlicesEventHandler struct {
 }
 
 func (h *endpointSlicesEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*discoveryv1.EndpointSlice], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	klog.Infof("eps(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
+	klog.V(4).Infof("eps(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
 	h.enqueueImpactedSvc(e.Object)
 }
 
@@ -205,7 +205,7 @@ type secretEventHandler struct {
 }
 
 func (h *secretEventHandler) Create(_ context.Context, e event.TypedCreateEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	klog.Infof("secret(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
+	klog.V(4).Infof("secret(%s/%s) created", e.Object.GetNamespace(), e.Object.GetName())
 	h.enqueueImpactedMCI(e.Object.GetNamespace(), e.Object.GetName())
 }
 
