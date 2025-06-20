@@ -127,8 +127,8 @@ func obtainBindingClusters(rb *workv1alpha2.ResourceBinding) []string {
 // SetupWithManager creates a controller and register to controller manager.
 func (c *Controller) SetupWithManager(mgr controllerruntime.Manager) error {
 	mciPredicateFuncs := predicate.Funcs{
-		CreateFunc: func(event event.CreateEvent) bool { return true },
-		DeleteFunc: func(event event.DeleteEvent) bool { return false },
+		CreateFunc: func(_ event.CreateEvent) bool { return true },
+		DeleteFunc: func(_ event.DeleteEvent) bool { return false },
 		UpdateFunc: func(event event.UpdateEvent) bool {
 			oldMCI := event.ObjectOld.(*networkingv1alpha1.MultiClusterIngress)
 			newMCI := event.ObjectNew.(*networkingv1alpha1.MultiClusterIngress)
@@ -145,7 +145,7 @@ func (c *Controller) SetupWithManager(mgr controllerruntime.Manager) error {
 	}
 
 	rbMapFunc := handler.MapFunc(
-		func(ctx context.Context, object client.Object) []reconcile.Request {
+		func(_ context.Context, object client.Object) []reconcile.Request {
 			var requests []reconcile.Request
 
 			rb := object.(*workv1alpha2.ResourceBinding)
