@@ -164,17 +164,17 @@ func clusterPropagationPolicy(clusters []string) *policyv1alpha1.ClusterPropagat
 // SetupWithManager creates a controller and register to controller manager.
 func (r *Controller) SetupWithManager(_ context.Context, mgr controllerruntime.Manager) error {
 	clusterFilter := predicate.Funcs{
-		CreateFunc: func(event event.CreateEvent) bool { return true },
+		CreateFunc: func(_ event.CreateEvent) bool { return true },
 		UpdateFunc: func(updateEvent event.UpdateEvent) bool {
 			return !equality.Semantic.DeepEqual(updateEvent.ObjectOld.GetDeletionTimestamp().IsZero(),
 				updateEvent.ObjectNew.GetDeletionTimestamp().IsZero())
 		},
-		DeleteFunc:  func(deleteEvent event.DeleteEvent) bool { return true },
-		GenericFunc: func(genericEvent event.GenericEvent) bool { return false },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
 
 	cppHandlerFn := handler.MapFunc(
-		func(ctx context.Context, object client.Object) []reconcile.Request {
+		func(_ context.Context, _ client.Object) []reconcile.Request {
 			// return a fictional cluster, triggering to reconcile to recreate the cpp.
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{Name: "no-exist-cluster"}},
@@ -182,12 +182,12 @@ func (r *Controller) SetupWithManager(_ context.Context, mgr controllerruntime.M
 		},
 	)
 	cppFilter := builder.WithPredicates(predicate.Funcs{
-		CreateFunc: func(event event.CreateEvent) bool { return false },
-		UpdateFunc: func(updateEvent event.UpdateEvent) bool { return false },
+		CreateFunc: func(_ event.CreateEvent) bool { return false },
+		UpdateFunc: func(_ event.UpdateEvent) bool { return false },
 		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
 			return deleteEvent.Object.GetName() == clusterPropagationPolicyName
 		},
-		GenericFunc: func(genericEvent event.GenericEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	})
 
 	return controllerruntime.NewControllerManagedBy(mgr).

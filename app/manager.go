@@ -56,7 +56,7 @@ func NewControllerManagerCommand(ctx context.Context,
 		Use: "multicluster-controller-manager",
 		Long: `The MultiCluster controller manager is a daemon that embeds
 the cloud specific control loops shipped with Karmada.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			// validate options
 			if errs := opts.Validate(); len(errs) != 0 {
 				return errs.ToAggregate()
@@ -154,7 +154,7 @@ func setupControllers(ctx context.Context, mgr controllerruntime.Manager, cloudP
 	restConfig := mgr.GetConfig()
 	dynamicClientSet := dynamic.NewForConfigOrDie(restConfig)
 
-	controlPlaneInformerManager := genericmanager.NewSingleClusterInformerManager(dynamicClientSet, 0, ctx.Done())
+	controlPlaneInformerManager := genericmanager.NewSingleClusterInformerManager(ctx, dynamicClientSet, 0)
 
 	setupIndexesForMCI(ctx, mgr.GetFieldIndexer())
 

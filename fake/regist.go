@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	multiclusterprovider.RegisterMultiClusterProvider(defaultProviderName, func(config io.Reader) (multiclusterprovider.Interface, error) {
+	multiclusterprovider.RegisterMultiClusterProvider(defaultProviderName, func(_ io.Reader) (multiclusterprovider.Interface, error) {
 		return &Provider{Name: defaultProviderName}, nil
 	})
 }
