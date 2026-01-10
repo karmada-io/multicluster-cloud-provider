@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/karmada-io/karmada/pkg/sharedcli"
-	"github.com/karmada-io/karmada/pkg/sharedcli/klogflag"
 	"github.com/karmada-io/karmada/pkg/sharedcli/profileflag"
 	"github.com/karmada-io/karmada/pkg/util/fedinformer"
 	"github.com/karmada-io/karmada/pkg/util/fedinformer/genericmanager"
@@ -19,6 +18,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/component-base/logs"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/term"
 	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -56,6 +57,15 @@ func NewControllerManagerCommand(ctx context.Context,
 		Use: "multicluster-controller-manager",
 		Long: `The MultiCluster controller manager is a daemon that embeds
 the cloud specific control loops shipped with Karmada.`,
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			// Apply structured logging configuration as early as possible
+			// This must be called after flags are parsed but before any logging
+			// logsapi.ValidateAndApply internally initializes the logging system
+			if err := logsapi.ValidateAndApply(opts.Logging, opts.FeatureGate); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(_ *cobra.Command, _ []string) error {
 			// validate options
 			if errs := opts.Validate(); len(errs) != 0 {
@@ -77,9 +87,18 @@ the cloud specific control loops shipped with Karmada.`,
 	genericFlagSet.Lookup("kubeconfig").Usage = "Path to karmada control plane kubeconfig file."
 	opts.AddFlags(genericFlagSet)
 
-	// Set klog flags
+	// Add feature gates flag (--feature-gates).This allows users to enable/disable feature gates via command line
+	// Example: --feature-gates=LoggingAlphaOptions=true,MyCustomFeature=true
+	if opts.FeatureGate != nil {
+		opts.FeatureGate.AddFlag(genericFlagSet)
+	}
+
+	// Set logging flags
 	logsFlagSet := fss.FlagSet("logs")
-	klogflag.Add(logsFlagSet)
+	// Add logging flags, skipping configuration flags since we use LoggingConfiguration
+	logs.AddFlags(logsFlagSet, logs.SkipLoggingConfigurationFlags())
+	// Add logging configuration flags including --logging-format
+	logsapi.AddFlags(opts.Logging, logsFlagSet)
 
 	cmd.AddCommand(sharedcommand.NewCmdVersion("multicluster-controller-manager"))
 	cmd.Flags().AddFlagSet(genericFlagSet)
