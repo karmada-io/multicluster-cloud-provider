@@ -5,6 +5,9 @@ import (
 
 	"k8s.io/component-base/cli"
 	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/component-base/featuregate"
+	"k8s.io/component-base/logs"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	_ "k8s.io/component-base/logs/json/register" // for JSON log format registration
 	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -19,10 +22,22 @@ import (
 func main() {
 	ctx := controllerruntime.SetupSignalHandler()
 	opts := options.NewClusterControllerManagerOptions()
+
+	// Initialize feature gates for logging
+	featureGate := featuregate.NewFeatureGate()
+	if err := logsapi.AddFeatureGates(featureGate); err != nil {
+		klog.Fatalf("Failed to add feature gates: %v", err)
+	}
+	opts.FeatureGate = featureGate
+
 	fss := cliflag.NamedFlagSets{}
 	cmd := app.NewControllerManagerCommand(ctx, opts, fss, cloudInitializer)
 
 	code := cli.Run(cmd)
+
+	// Ensure any buffered log entries are flushed
+	logs.FlushLogs()
+
 	os.Exit(code)
 }
 

@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	componentbaseconfig "k8s.io/component-base/config"
+	"k8s.io/component-base/featuregate"
+	logsapi "k8s.io/component-base/logs/api/v1"
 )
 
 const (
@@ -57,6 +59,10 @@ type MultiClusterControllerManagerOptions struct {
 
 	RateLimiterOpts ratelimiterflag.Options
 	ProfileOpts     profileflag.Options
+	// Logging contains logging options.
+	Logging *logsapi.LoggingConfiguration
+	// FeatureGate is a shared global feature gate used for parsing command-line arguments.
+	FeatureGate featuregate.MutableFeatureGate
 }
 
 // NewClusterControllerManagerOptions builds an empty MultiClusterControllerManagerOptions.
@@ -68,6 +74,7 @@ func NewClusterControllerManagerOptions() *MultiClusterControllerManagerOptions 
 			ResourceNamespace: NamespaceKarmadaSystem,
 			ResourceName:      "multicluster-controller-manager",
 		},
+		Logging: logsapi.NewLoggingConfiguration(),
 	}
 }
 
