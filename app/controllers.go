@@ -24,7 +24,7 @@ func startMCIController(ctx controllerscontext.Context) (enabled bool, err error
 		Client:             ctx.Mgr.GetClient(),
 		LoadBalancer:       loadBalancer,
 		InformerManager:    ctx.InformerManager,
-		EventRecorder:      ctx.Mgr.GetEventRecorderFor(multiclusteringress.ControllerName),
+		EventRecorder:      ctx.Mgr.GetEventRecorderFor(multiclusteringress.ControllerName), //nolint:staticcheck // Note: GetEventRecorderFor is deprecated in controller-runtime v0.23.0 in favor of GetEventRecorder. This changes event API from v1 events to events.k8s.io. We need to migrate carefully, especially considering the impact on users and RBAC permission changes in installation/deployment tools.
 		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
 		ProviderClassName:  ctx.ProviderClassName,
 	}
@@ -47,7 +47,7 @@ func startMCSController(ctx controllerscontext.Context) (enabled bool, err error
 		Client:             ctx.Mgr.GetClient(),
 		MCSLoadBalancer:    loadBalancer,
 		InformerManager:    ctx.InformerManager,
-		EventRecorder:      ctx.Mgr.GetEventRecorderFor(multiclusterservice.ControllerName),
+		EventRecorder:      ctx.Mgr.GetEventRecorderFor(multiclusterservice.ControllerName), //nolint:staticcheck // Note: GetEventRecorderFor is deprecated in controller-runtime v0.23.0 in favor of GetEventRecorder. This changes event API from v1 events to events.k8s.io. We need to migrate carefully, especially considering the impact on users and RBAC permission changes in installation/deployment tools.
 		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
 	}
 	if err = mcsController.SetupWithManager(ctx.Context, ctx.Mgr); err != nil {
@@ -59,7 +59,7 @@ func startMCSController(ctx controllerscontext.Context) (enabled bool, err error
 func startCRDInstallationController(ctx controllerscontext.Context) (enabled bool, err error) {
 	c := &crdinstallation.Controller{
 		Client:             ctx.Mgr.GetClient(),
-		EventRecorder:      ctx.Mgr.GetEventRecorderFor(crdinstallation.ControllerName),
+		EventRecorder:      ctx.Mgr.GetEventRecorderFor(crdinstallation.ControllerName), //nolint:staticcheck // Note: GetEventRecorderFor is deprecated in controller-runtime v0.23.0 in favor of GetEventRecorder. This changes event API from v1 events to events.k8s.io. We need to migrate carefully, especially considering the impact on users and RBAC permission changes in installation/deployment tools.
 		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
 	}
 	if err = c.SetupWithManager(ctx.Context, ctx.Mgr); err != nil {
@@ -71,7 +71,7 @@ func startCRDInstallationController(ctx controllerscontext.Context) (enabled boo
 func startServiceExportPropagationController(ctx controllerscontext.Context) (enabled bool, err error) {
 	c := &serviceexportpropagation.Controller{
 		Client:             ctx.Mgr.GetClient(),
-		EventRecorder:      ctx.Mgr.GetEventRecorderFor(serviceexportpropagation.ControllerName),
+		EventRecorder:      ctx.Mgr.GetEventRecorderFor(serviceexportpropagation.ControllerName), //nolint:staticcheck // Note: GetEventRecorderFor is deprecated in controller-runtime v0.23.0 in favor of GetEventRecorder. This changes event API from v1 events to events.k8s.io. We need to migrate carefully, especially considering the impact on users and RBAC permission changes in installation/deployment tools.
 		RateLimiterOptions: ctx.Opts.RateLimiterOptions,
 		ProviderClassName:  ctx.ProviderClassName,
 	}
